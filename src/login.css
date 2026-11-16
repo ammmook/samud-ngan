@@ -1,0 +1,74 @@
+/* หน้าเข้าสู่ระบบ (แบบสองส่วน): ซ้ายคือเวทีสีป่า ขวาคือฟอร์ม ใช้เฉพาะ token จากระบบดีไซน์
+   การเคลื่อนไหว: เปิดหน้าครั้งเดียว (หัวข้อโผล่ทีละบรรทัด ฟอร์มเฟดตามกัน) + วนเบาๆ 3 อย่าง
+   (ก้อนสีลอย วงแหวนสัปดาห์ ต้นไม้โต) ทั้งหมดปิดเมื่อผู้ใช้ตั้งลดการเคลื่อนไหว */
+
+.lg { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); background: var(--surface-100); }
+
+/* เวที */
+.lg__stage { position: relative; overflow: hidden; background: var(--forest); color: var(--on-forest); padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-6); isolation: isolate; }
+.lg__stage > * { position: relative; z-index: 1; }
+.lg__brand { display: flex; align-items: center; gap: var(--space-2); font: 500 24px/40px var(--font-display); }
+.lg__headline { margin: auto 0 0; font: 500 clamp(52px, 7.2vw, 108px)/1.35 var(--font-display); display: flex; flex-direction: column; }
+.lg__line { display: block; overflow: hidden; padding-bottom: 4px; }
+.lg__line > span { display: block; animation: lg-line var(--dur-slow) var(--ease-settle) both; animation-delay: calc(var(--i) * 140ms + 120ms); }
+
+/* ก้อนสีลอย (วนช้าๆ เหมือนเชดเดอร์ แต่เป็น CSS ล้วน) */
+.lg__blob { position: absolute; z-index: 0; border-radius: 50%; filter: blur(64px); opacity: 0.42; pointer-events: none; animation: lg-float calc(var(--dur-loop) * 3) var(--ease-drift) infinite alternate; }
+.lg__blob--a { width: 46%; aspect-ratio: 1; left: -8%; top: 8%; background: var(--moss); }
+.lg__blob--b { width: 38%; aspect-ratio: 1; right: -6%; top: 34%; background: var(--cat-honey-solid); opacity: 0.3; animation-delay: -6s; animation-duration: calc(var(--dur-loop) * 3.6); }
+.lg__blob--c { width: 34%; aspect-ratio: 1; left: 30%; bottom: -14%; background: var(--cat-meadow-solid); opacity: 0.34; animation-delay: -11s; }
+
+/* สัปดาห์: วงแหวนชั่วโมง */
+.lg__week { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.lg__day { display: flex; flex-direction: column; align-items: center; gap: 2px; font: 500 13px/20px var(--font-body); }
+.lg__day svg { transform: rotate(-90deg); }
+.lg__day circle { fill: none; stroke-width: 5; }
+.lg__track { stroke: var(--on-forest); opacity: 0.2; }
+.lg__fill { stroke: var(--cat-honey-fill); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: lg-ring calc(var(--dur-loop) + 3s) var(--ease-settle) infinite; animation-delay: calc(var(--i) * 160ms + 500ms); }
+
+/* โน๊ตสวนงาน */
+.lg__note { align-self: flex-start; display: flex; align-items: center; gap: var(--space-4); background: var(--surface-200); color: var(--ink); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-5) var(--space-3) var(--space-4); box-shadow: var(--shadow-lift); max-width: 340px; transform: rotate(-1.6deg); animation: lg-bob var(--dur-loop) var(--ease-drift) infinite alternate; }
+.lg__note strong { font: 500 18px/30px var(--font-display); }
+.lg__note p { font: 400 14px/24px var(--font-body); color: var(--ink-muted); }
+
+/* ฟอร์ม */
+.lg__panel { display: grid; place-items: center; padding: var(--space-6) var(--space-5); }
+.lg__form { width: min(380px, 100%); display: flex; flex-direction: column; gap: var(--space-3); }
+.lg__mobilebrand { display: none; }
+.lg__form .login__title { font-size: 30px; line-height: 44px; }
+.lg__rise { animation: sn-rise var(--dur-slow) var(--ease-settle) both; animation-delay: calc(var(--i) * 90ms + 320ms); }
+.lg__form .login__gbox { justify-content: stretch; }
+.lg__g { width: 100%; }
+.lg__cta { position: relative; overflow: hidden; width: 100%; min-height: 52px; font-size: 16px; isolation: isolate; }
+.lg__cta::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--forest); transform: translateX(-101%); transition: transform var(--dur-base) var(--ease-settle); }
+.lg__cta:hover:not(:disabled)::before { transform: none; }
+.lg__cta .lg__cta-icon { transition: transform var(--dur-base) var(--ease-settle); }
+.lg__cta:hover:not(:disabled) .lg__cta-icon { transform: rotate(35deg) scale(1.15); }
+.lg__cta { color: var(--on-moss); }
+:root[data-theme="dark"] .lg__cta:hover:not(:disabled) { color: var(--on-forest); }
+
+@keyframes lg-line { from { transform: translateY(105%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lg-float { from { transform: translate(-4%, 3%) scale(0.94); } to { transform: translate(6%, -5%) scale(1.08); } }
+@keyframes lg-ring { 0% { stroke-dashoffset: 100; } 36%, 78% { stroke-dashoffset: var(--p); } 100% { stroke-dashoffset: 100; } }
+@keyframes lg-bob { from { transform: rotate(-1.6deg) translateY(0); } to { transform: rotate(-0.4deg) translateY(-8px); } }
+
+/* ต่ำกว่า 860px: เวทีเป็นแถบบน ฟอร์มอยู่ถัดลงมา */
+@media (max-width: 860px) {
+  .lg { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .lg__stage { padding: var(--space-5) var(--space-4); gap: var(--space-4); }
+  .lg__headline { margin: 0; font-size: clamp(44px, 13vw, 64px); }
+  .lg__headline .lg__line:last-child { margin-top: -6px; }
+  .lg__brand, .lg__note { display: none; }
+  .lg__mobilebrand { display: flex; align-items: center; gap: var(--space-2); font: 500 20px/32px var(--font-display); color: var(--moss); }
+  .lg__panel { padding: var(--space-5) var(--space-4) var(--space-6); align-items: start; }
+}
+@media (max-width: 420px) {
+  .lg__week { gap: var(--space-2); }
+  .lg__day svg { width: 38px; height: 38px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg__blob, .lg__fill, .lg__note, .lg__line > span, .lg__rise { animation: none !important; }
+  .lg__fill { stroke-dashoffset: var(--p); }
+  .lg__cta::before, .lg__cta .lg__cta-icon { transition: none !important; }
+}
