@@ -1,0 +1,88 @@
+/* สมุดงาน — generated from tokens.json */
+:root, [data-theme="light"] {
+  --surface-100: #ECEFE1;
+  --surface-200: #F8F8EF;
+  --surface-300: #DFE5D0;
+  --ink: #1F3027;
+  --ink-muted: #4A5F52;
+  --line: #C9D2BA;
+  --line-strong: #7B8D77;
+  --forest: #27402F;
+  --on-forest: #EAF0DC;
+  --moss: #2F6B43;
+  --on-moss: #FFFFFF;
+  --moss-soft: #D6E6C8;
+  --focus-ring: #2764C9;
+  --now-line: #B83A26;
+  --cat-meadow-fill: #CFE5B8;
+  --cat-meadow-ink: #234A2B;
+  --cat-meadow-solid: #52903A;
+  --cat-sky-fill: #C5DDEE;
+  --cat-sky-ink: #1D3F5C;
+  --cat-sky-solid: #3F86B8;
+  --cat-honey-fill: #F4DD9A;
+  --cat-honey-ink: #5A3F06;
+  --cat-honey-solid: #A8730A;
+  --cat-blossom-fill: #F2C9D4;
+  --cat-blossom-ink: #6B2038;
+  --cat-blossom-solid: #CF5C7F;
+  --cat-lilac-fill: #D9CFF0;
+  --cat-lilac-ink: #3D2A6B;
+  --cat-lilac-solid: #7E64BE;
+  --shadow-card: 0 1px 0 rgba(31,48,39,0.06), 0 8px 20px -12px rgba(31,48,39,0.28);
+  --shadow-lift: 0 16px 28px -10px rgba(31,48,39,0.42);
+}
+[data-theme="dark"] {
+  --surface-100: #141E18;
+  --surface-200: #1D2A22;
+  --surface-300: #26362C;
+  --ink: #E8EFDD;
+  --ink-muted: #A9B9A8;
+  --line: #34463A;
+  --line-strong: #6A8270;
+  --forest: #2F4D39;
+  --on-forest: #EAF0DC;
+  --moss: #8CCB8F;
+  --on-moss: #10230F;
+  --moss-soft: #2C4533;
+  --focus-ring: #8DB8FF;
+  --now-line: #FF8F78;
+  --cat-meadow-fill: #2D4A2F;
+  --cat-meadow-ink: #CBE8B5;
+  --cat-meadow-solid: #7DBB5A;
+  --cat-sky-fill: #243F55;
+  --cat-sky-ink: #BFDDF2;
+  --cat-sky-solid: #6AAEDD;
+  --cat-honey-fill: #54410F;
+  --cat-honey-ink: #F6E1A4;
+  --cat-honey-solid: #E3B045;
+  --cat-blossom-fill: #59283A;
+  --cat-blossom-ink: #F6CBD9;
+  --cat-blossom-solid: #E27F9F;
+  --cat-lilac-fill: #3C3262;
+  --cat-lilac-ink: #DCD2F5;
+  --cat-lilac-solid: #A28CE0;
+  --shadow-card: 0 1px 0 rgba(0,0,0,0.3), 0 8px 20px -12px rgba(0,0,0,0.6);
+  --shadow-lift: 0 16px 28px -10px rgba(0,0,0,0.75);
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+  --dur-fast: 140ms;
+  --dur-base: 260ms;
+  --dur-slow: 600ms;
+  --dur-loop: 7s;
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-drift: cubic-bezier(0.45, 0, 0.55, 1);
+  --font-display: "Mitr", "Noto Sans Thai", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans Thai Looped", "Noto Sans Thai", system-ui, sans-serif;
+}
