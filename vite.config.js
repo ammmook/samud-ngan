@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: { 'import.meta.env.VITE_NEON_AUTH_URL': JSON.stringify(env.NEON_AUTH_BASE_URL || '') },
-    server: { proxy: { '/api': 'http://localhost:8787' } },
+    // API_PORT ไว้ชี้ไปเซิร์ฟเวอร์ API ที่รันคนละพอร์ต (ค่าเริ่มต้น 8787)
+    server: { proxy: { '/api': 'http://localhost:' + (env.API_PORT || 8787) } },
   };
 });

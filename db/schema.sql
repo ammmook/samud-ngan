@@ -17,15 +17,17 @@ CREATE TABLE users (
 );
 CREATE UNIQUE INDEX users_email_key ON users (lower(email));
 
--- หมวดของผู้ใช้แต่ละคน: 5 หมวดตั้งต้น (id = ชื่อชุดสี) ผู้ใช้เพิ่ม/แก้ชื่อ/ลบเองได้
+-- หมวดกลาง: ไม่ผูกกับผู้ใช้ ทุกคนอ่านชุดเดียวกัน (1 หมวด : หลายบันทึก)
+-- เพิ่มหมวดใหม่ด้วยการ INSERT ตรงๆ ผู้ใช้เลือกใช้หมวดไหน ก็เก็บ id หมวดนั้นไว้ที่ entries.cat ของบันทึกนั้น
 CREATE TABLE categories (
-  user_id  bigint   NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  id       text     NOT NULL CHECK (length(id) BETWEEN 1 AND 64),
+  id       text     PRIMARY KEY CHECK (length(id) BETWEEN 1 AND 64),
   label    text     NOT NULL CHECK (length(btrim(label)) BETWEEN 1 AND 40),
   palette  text     NOT NULL DEFAULT 'meadow' CHECK (palette IN ('meadow','sky','honey','blossom','lilac')),  -- ชุดสีที่ธีมมีให้
-  position smallint NOT NULL DEFAULT 0,
-  PRIMARY KEY (user_id, id)       -- ใช้เป็นดัชนีของ "หมวดทั้งหมดของ user" ด้วย
+  position smallint NOT NULL DEFAULT 0
 );
+INSERT INTO categories (id, label, palette, position) VALUES
+  ('meadow','งานหลัก','meadow',0), ('sky','ประชุม','sky',1), ('honey','ลงพื้นที่','honey',2),
+  ('blossom','งานสร้างสรรค์','blossom',3), ('lilac','เรียนรู้','lilac',4);
 
 CREATE TABLE entries (
   id          text        PRIMARY KEY CHECK (length(id) BETWEEN 1 AND 64),  -- uuid ที่ไคลเอนต์สร้าง (ใช้ upsert ตอนซิงก์)
@@ -40,8 +42,9 @@ CREATE TABLE entries (
   updated_at  timestamptz NOT NULL DEFAULT now(),
   CHECK (end_time > start_time),
   -- ลบหมวดที่ยังมีบันทึกใช้อยู่ไม่ได้ ต้องย้ายบันทึกไปหมวดอื่นก่อน
-  FOREIGN KEY (user_id, cat) REFERENCES categories (user_id, id) ON DELETE RESTRICT
+  FOREIGN KEY (cat) REFERENCES categories (id) ON DELETE RESTRICT
 );
+CREATE INDEX entries_cat_idx ON entries (cat);  -- ให้ FK ตรวจตอนลบหมวดได้เร็ว
 -- มุมมองเดือน/สัปดาห์/วัน, เป้ารายวัน, streak, สวน, รายงาน: ล้วนเป็น "ของ user ช่วงวันที่ เรียงตามเวลา"
 CREATE INDEX entries_user_date_idx ON entries (user_id, entry_date, start_time);
 
@@ -62,16 +65,7 @@ BEGIN NEW.updated_at := now(); RETURN NEW; END $$;
 CREATE TRIGGER entries_updated BEFORE UPDATE ON entries
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- หมวดตั้งต้นของผู้ใช้ใหม่ (ชื่อตรงกับที่แอปใช้อยู่)
-CREATE FUNCTION seed_categories(uid bigint) RETURNS void LANGUAGE sql AS $$
-  INSERT INTO categories (user_id, id, label, palette, position) VALUES
-    (uid,'meadow','งานหลัก','meadow',0), (uid,'sky','ประชุม','sky',1), (uid,'honey','ลงพื้นที่','honey',2),
-    (uid,'blossom','งานสร้างสรรค์','blossom',3), (uid,'lilac','เรียนรู้','lilac',4)
-  ON CONFLICT DO NOTHING
-$$;
-
 -- ---------- down ----------
--- DROP FUNCTION seed_categories(bigint);
 -- DROP TRIGGER entries_updated ON entries;
 -- DROP FUNCTION set_updated_at();
 -- DROP TABLE entry_photos;   -- ลบรูปทั้งหมด ย้อนกลับไม่ได้

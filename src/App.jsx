@@ -12,6 +12,8 @@ import { createSyncer, loadProfile, loadRemote, putMe, setTokenProvider } from '
 import { currentUser, forgetToken, getToken, signInWithGoogle, signOutAuth } from './lib/auth.js';
 import { saveTemplates } from './lib/templates.js';
 
+const RETRY_MS = 5000;
+
 function Workspace({ user, onSignOut }) {
   const today = useToday();
   const [page, setPage] = useState(() => (pref('sn-page', 'calendar') === 'summary' ? 'summary' : 'calendar'));
@@ -19,6 +21,9 @@ function Workspace({ user, onSignOut }) {
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState(null);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadTick, setLoadTick] = useState(0); // เพิ่มค่าเพื่อให้ effect โหลดทำงานซ้ำ
+  const [saveTick, setSaveTick] = useState(0); // เพิ่มค่าเพื่อให้ effect บันทึกส่งซ้ำ
   const [cursor, setCursor] = useState(() => ds(new Date()));
   const [goal, setGoalState] = useState(() => { const g = Number(pref('sn-goal', '6')); return g >= 1 && g <= 12 ? g : 6; });
   const setGoal = (g) => { setGoalState(g); setPref('sn-goal', String(g)); if (!user.guest) putMe({ goal: g }); };
@@ -27,8 +32,8 @@ function Workspace({ user, onSignOut }) {
   const syncer = useRef(null);
 
   useEffect(() => {
-    let live = true;
-    const done = (list) => { if (live) { setEvents(list); setLoaded(true); } };
+    let live = true, retry = null;
+    const done = (list) => { if (live) { setEvents(list); setLoaded(true); setLoadFailed(false); } };
     if (user.guest) {
       loadEvents(storeKey).then((list) => done(!list.length && location.hash === '#demo' ? demoData(ds(new Date())) : list));
     } else {
@@ -38,17 +43,25 @@ function Workspace({ user, onSignOut }) {
         syncer.current.init(list);
         if (!list.length) list = await loadEvents(storeKey);
         done(list);
-      }).catch(() => { if (live) { setSaveFailed(true); setLoaded(false); } });
+      }).catch(() => {
+        if (!live) return;
+        setLoadFailed(true); setLoaded(false);
+        retry = setTimeout(() => setLoadTick((t) => t + 1), RETRY_MS); // ลองโหลดใหม่เอง
+      });
     }
-    return () => { live = false; };
-  }, [storeKey, user.guest]);
+    return () => { live = false; clearTimeout(retry); };
+  }, [storeKey, user.guest, loadTick]);
   useEffect(() => {
     if (!loaded) return undefined;
-    let live = true;
+    let live = true, retry = null;
     const save = user.guest ? saveEvents(events, storeKey) : syncer.current.push(events);
-    save.then((ok) => { if (live) setSaveFailed(!ok); });
-    return () => { live = false; };
-  }, [events, loaded, storeKey, user.guest]);
+    save.then((ok) => {
+      if (!live) return;
+      setSaveFailed(!ok);
+      if (!ok && !user.guest) retry = setTimeout(() => setSaveTick((t) => t + 1), RETRY_MS); // ส่งส่วนที่ค้างซ้ำเอง
+    });
+    return () => { live = false; clearTimeout(retry); };
+  }, [events, loaded, storeKey, user.guest, saveTick]);
   useEffect(() => { setPref('sn-page', page); }, [page]);
 
   const notify = (msg, undo) => {
@@ -63,10 +76,10 @@ function Workspace({ user, onSignOut }) {
       <Leaves />
       <Sidebar page={page} onPage={setPage} user={user} onSignOut={onSignOut} />
       <main className="main">
-        {saveFailed && (
+        {(saveFailed || loadFailed) && (
           <div className="banner" role="alert">
             <Icon name="note" size={20} />
-            <span>{user.guest ? 'เก็บบันทึกลงเครื่องไม่ได้ อาจเพราะพื้นที่เต็ม ลองลบรูปที่ไม่ใช้ หรือเปิดแอปในหน้าต่างปกติ ไม่ใช่โหมดส่วนตัว' : 'บันทึกขึ้นเซิร์ฟเวอร์ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองแก้ไขอีกครั้ง ระบบจะส่งใหม่ให้เอง'}</span>
+            <span>{user.guest ? 'เก็บบันทึกลงเครื่องไม่ได้ อาจเพราะพื้นที่เต็ม ลองลบรูปที่ไม่ใช้ หรือเปิดแอปในหน้าต่างปกติ ไม่ใช่โหมดส่วนตัว' : loadFailed ? 'โหลดบันทึกจากเซิร์ฟเวอร์ไม่ได้ ตรวจอินเทอร์เน็ตหรือว่าเซิร์ฟเวอร์ (npm run dev) ยังรันอยู่ ระบบจะลองใหม่ทุก 5 วินาที' : 'บันทึกขึ้นเซิร์ฟเวอร์ไม่สำเร็จ ระบบจะลองส่งใหม่ทุก 5 วินาที'}</span>
           </div>
         )}
         {page === 'calendar'

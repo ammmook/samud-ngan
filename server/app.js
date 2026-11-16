@@ -4,9 +4,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-const PALETTES = ['meadow', 'sky', 'honey', 'blossom', 'lilac'], MAX_CATS = 30;
+// ลิงก์รูปต้องอยู่ได้นานกว่าช่วงที่เปิดแอปค้างไว้ ไม่งั้นรูปในหน้าเดิมจะพังหลังครบเวลา
+const PHOTO_URL_TTL_S = 12 * 3600;
 const MAX_PHOTO = 5 * 1024 * 1024, MAX_JSON = 2 * 1024 * 1024, MAX_PHOTOS_PER_ENTRY = 20;
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$/, DATE = /^\d{4}-\d{2}-\d{2}$/;
+// เวลาจบรับ 24:00 ได้ เพราะการลากบันทึกไปท้ายวันในตารางเวลาให้ค่านี้ (Postgres ชนิด time รับ 24:00)
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/, END_TIME = /^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, DATE = /^\d{4}-\d{2}-\d{2}$/;
 const PHOTO_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.png': 'image/png', '.ico': 'image/x-icon' };
 
@@ -24,7 +26,7 @@ const str = (v, max, name) => { if (typeof v !== 'string' || v.length > max) thr
 function checkEvent(e) {
   if (!e || typeof e !== 'object') throw bad('บันทึกไม่ถูกต้อง');
   const id = str(e.id, 64, 'id'); if (!id) throw bad('id ว่าง');
-  if (!DATE.test(e.date) || !TIME.test(e.start) || !TIME.test(e.end)) throw bad('วันหรือเวลาไม่ถูกต้อง');
+  if (!DATE.test(e.date) || !TIME.test(e.start) || !END_TIME.test(e.end)) throw bad('วันหรือเวลาไม่ถูกต้อง');
   if (e.end <= e.start) throw bad('เวลาจบต้องหลังเวลาเริ่ม');
   const title = str(e.title, 200, 'หัวข้อ').trim(); if (!title) throw bad('หัวข้อว่าง');
   const photoIds = Array.isArray(e.photoIds) ? e.photoIds : [];
@@ -48,7 +50,6 @@ export function createApp({ pool, files, verifyToken, distDir }) {
     const ins = await pool.query(
       `INSERT INTO users (auth_id, email, name) VALUES ($1,$2,$3)
        ON CONFLICT (auth_id) DO UPDATE SET auth_id = EXCLUDED.auth_id RETURNING id`, [String(p.sub), p.email, p.name || '']);
-    await pool.query('SELECT seed_categories($1)', [ins.rows[0].id]); // หมวดตั้งต้น 5 หมวด (ไม่ซ้ำถ้ามีแล้ว)
     return Number(ins.rows[0].id);
   }
   const profile = (u) => ({ goal: u.daily_goal, templates: u.templates });
@@ -69,39 +70,17 @@ export function createApp({ pool, files, verifyToken, distDir }) {
       if (b.templates !== undefined) {
         if (!Array.isArray(b.templates) || b.templates.length > 12) throw bad('แม่แบบไม่ถูกต้อง');
         const t = b.templates.map((x) => {
-          if (!x || !TIME.test(x.start) || !TIME.test(x.end)) throw bad('แม่แบบไม่ถูกต้อง');
+          if (!x || !TIME.test(x.start) || !END_TIME.test(x.end)) throw bad('แม่แบบไม่ถูกต้อง');
           return { id: str(x.id, 64, 'id'), title: str(x.title, 200, 'หัวข้อ'), cat: typeof x.cat === 'string' ? x.cat.slice(0, 64) : 'meadow', start: x.start, end: x.end, note: str(x.note ?? '', 5000, 'รายละเอียด') };
         });
         await pool.query('UPDATE users SET templates=$2::jsonb WHERE id=$1', [uid, JSON.stringify(t)]);
       }
       return [200, { ok: true }];
     }],
-    ['GET', /^\/api\/categories$/, async (req) => {
-      const uid = await requireUser(req);
-      const { rows } = await pool.query('SELECT id, label, palette FROM categories WHERE user_id=$1 ORDER BY position, label', [uid]);
+    // หมวดกลาง อ่านอย่างเดียว (ไม่ผูกผู้ใช้ ไม่มีข้อมูลส่วนตัว) เพิ่มหมวดด้วยการ INSERT ลงตาราง categories
+    ['GET', /^\/api\/categories$/, async () => {
+      const { rows } = await pool.query('SELECT id, label, palette FROM categories ORDER BY position, label');
       return [200, rows];
-    }],
-    // เพิ่มหมวดใหม่หรือแก้ชื่อ/สีของหมวดเดิม (id สร้างจากหน้าเว็บ)
-    ['PUT', /^\/api\/categories\/([\w-]{1,64})$/, async (req, m) => {
-      const uid = await requireUser(req), b = await readJson(req);
-      const label = str(b.label, 40, 'ชื่อหมวด').trim();
-      if (!label) throw bad('ชื่อหมวดว่าง');
-      if (!PALETTES.includes(b.palette)) throw bad('สีไม่ถูกต้อง');
-      const n = await pool.query('SELECT count(*)::int n, bool_or(id=$2) AS has FROM categories WHERE user_id=$1', [uid, m[1]]);
-      if (!n.rows[0].has && n.rows[0].n >= MAX_CATS) throw bad('มีหมวดครบ ' + MAX_CATS + ' หมวดแล้ว');
-      await pool.query(
-        `INSERT INTO categories (user_id, id, label, palette, position)
-         VALUES ($1,$2,$3,$4, COALESCE((SELECT max(position)+1 FROM categories WHERE user_id=$1), 0))
-         ON CONFLICT (user_id, id) DO UPDATE SET label=EXCLUDED.label, palette=EXCLUDED.palette`, [uid, m[1], label, b.palette]);
-      return [200, { ok: true }];
-    }],
-    ['DELETE', /^\/api\/categories\/([\w-]{1,64})$/, async (req, m) => {
-      const uid = await requireUser(req);
-      const used = await pool.query('SELECT count(*)::int n FROM entries WHERE user_id=$1 AND cat=$2', [uid, m[1]]);
-      if (used.rows[0].n) throw new HttpError(409, `ยังมี ${used.rows[0].n} บันทึกใช้หมวดนี้อยู่ ย้ายไปหมวดอื่นก่อนลบ`);
-      const r = await pool.query('DELETE FROM categories WHERE user_id=$1 AND id=$2', [uid, m[1]]);
-      if (!r.rowCount) throw new HttpError(404, 'ไม่พบหมวด');
-      return [200, { deleted: true }];
     }],
     ['GET', /^\/api\/events$/, async (req) => {
       const uid = await requireUser(req);
@@ -112,7 +91,7 @@ export function createApp({ pool, files, verifyToken, distDir }) {
            FROM entries e LEFT JOIN entry_photos p ON p.entry_id = e.id
           WHERE e.user_id = $1 GROUP BY e.id ORDER BY e.entry_date, e.start_time`, [uid]);
       // รูปเป็นลิงก์ presigned ชั่วคราว (ผูกลายเซ็นในเครื่อง ไม่ต้องเรียกเครือข่ายเพิ่ม)
-      for (const e of rows) e.photos = await Promise.all(e.photos.map(async (p) => ({ id: p.id, src: await files.url(p.key, { expiresIn: 3600 }) })));
+      for (const e of rows) e.photos = await Promise.all(e.photos.map(async (p) => ({ id: p.id, src: await files.url(p.key, { expiresIn: PHOTO_URL_TTL_S }) })));
       return [200, rows];
     }],
     ['POST', /^\/api\/sync$/, async (req) => {
@@ -139,7 +118,7 @@ export function createApp({ pool, files, verifyToken, distDir }) {
           const gone = await c.query('DELETE FROM entry_photos WHERE entry_id=$1 AND NOT (id = ANY($2)) RETURNING storage_key', [e.id, e.photoIds]);
           orphan.push(...gone.rows.map((x) => x.storage_key));
           if (e.photoIds.length) await c.query(
-            `UPDATE entry_photos p SET position = t.i::smallint FROM unnest($2::text[]) WITH ORDINALITY AS t(id,i) WHERE p.id=t.id AND p.entry_id=$1`, [e.id, e.photoIds]);
+            `UPDATE entry_photos p SET position = (t.i - 1)::smallint FROM unnest($2::text[]) WITH ORDINALITY AS t(id,i) WHERE p.id=t.id AND p.entry_id=$1`, [e.id, e.photoIds]);
         }
         await c.query('COMMIT');
       } catch (err) { await c.query('ROLLBACK'); throw err; } finally { c.release(); }

@@ -19,10 +19,12 @@ let cached = null;
 export async function getToken() {
   const now = Date.now() / 1000;
   if (cached && cached.exp - 30 > now) return cached.token;
-  const { data, error } = await authClient.token();
-  if (error || !data || !data.token) throw Object.assign(new Error('ขอ token ไม่สำเร็จ'), { status: 401 });
-  const exp = JSON.parse(atob(data.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp;
-  cached = { token: data.token, exp };
+  // SDK ของ Neon ฉีด JWT ไว้ที่ session.token ของ getSession() (authClient.token() คืนข้อมูล session ไม่ใช่ { token })
+  const { data, error } = await authClient.getSession();
+  const token = data && data.session && data.session.token;
+  if (error || typeof token !== 'string' || token.split('.').length !== 3) throw Object.assign(new Error('ขอ token ไม่สำเร็จ'), { status: 401 });
+  const exp = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp;
+  cached = { token, exp };
   return cached.token;
 }
 export const forgetToken = () => { cached = null; };
