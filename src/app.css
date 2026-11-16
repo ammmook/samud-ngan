@@ -161,6 +161,8 @@ h1, h2, h3, p { margin: 0; }
 /* เมนูบัญชีบนแถบบนสุด */
 .acct { position: relative; }
 .acct__menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 3; min-width: 220px; background: var(--surface-200); color: var(--ink); border-radius: var(--radius-md); box-shadow: var(--shadow-lift); padding: var(--space-4); display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); animation: sn-rise var(--dur-fast) var(--ease-settle) both; }
+/* main อยู่ถัดไปใน DOM และมีชั้นซ้อนเท่ากับแถบนี้ จึงทับเมนูที่ยื่นออกมา ยกชั้นขึ้นเฉพาะตอนเมนูเปิด */
+.topbar:has(.acct__menu), .side:has(.acct__menu) { z-index: 2; }
 .acct__name { font: 500 15px/24px var(--font-body); }
 .acct__mail { font: 400 13px/20px var(--font-body); color: var(--ink-muted); overflow-wrap: anywhere; }
 
@@ -189,6 +191,8 @@ h1, h2, h3, p { margin: 0; }
 @media (max-width: 860px) {
   .app { grid-template-columns: minmax(0, 1fr); }
   .side { display: none; }
+  .main > .viewbox { order: 1; }
+  .main > .goal { order: 2; } /* เป้าและความต่อเนื่องอยู่ใต้ปฏิทิน */
   .topbar { display: flex; align-items: center; gap: var(--space-2); background: var(--forest); color: var(--on-forest); padding: var(--space-2) var(--space-4); position: relative; z-index: var(--z-nav); }
   .topbar__brand { display: inline-flex; align-items: center; gap: var(--space-2); font: 500 20px/32px var(--font-display); margin-right: auto; }
   .topbar__nav { display: flex; gap: var(--space-1); }

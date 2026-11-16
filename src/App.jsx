@@ -11,6 +11,7 @@ import { demoData, loadEvents, pref, saveEvents, setPref } from './lib/storage.j
 import { createSyncer, loadProfile, loadRemote, putMe, setTokenProvider } from './lib/remote.js';
 import { currentUser, forgetToken, getToken, signInWithGoogle, signOutAuth } from './lib/auth.js';
 import { saveTemplates } from './lib/templates.js';
+import { loadCategories } from './lib/categories.js';
 
 const RETRY_MS = 5000;
 
@@ -28,6 +29,8 @@ function Workspace({ user, onSignOut }) {
   const [goal, setGoalState] = useState(() => { const g = Number(pref('sn-goal', '6')); return g >= 1 && g <= 12 ? g : 6; });
   const setGoal = (g) => { setGoalState(g); setPref('sn-goal', String(g)); if (!user.guest) putMe({ goal: g }); };
   const toastTimer = useRef(null);
+  const [, setCatsLoaded] = useState(0); // ให้หน้าวาดใหม่เมื่อหมวดจากเซิร์ฟเวอร์มาถึง (CATS ถูกเติมค่า)
+  useEffect(() => { loadCategories().then(() => setCatsLoaded((n) => n + 1)).catch(() => {}); }, []);
   const storeKey = user.guest ? 'events' : 'events:' + user.sub;
   const syncer = useRef(null);
 
