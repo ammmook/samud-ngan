@@ -2,16 +2,17 @@
 // ซิงก์แบบส่งเฉพาะส่วนที่เปลี่ยน: เทียบรายการปัจจุบันกับที่เซิร์ฟเวอร์รู้ล่าสุด
 
 export async function api(path, opt = {}) {
-  const res = await fetch('/api' + path, { credentials: 'same-origin', ...opt });
+  const res = await fetch('/api' + path, { ...opt, headers: { ...(opt.headers || {}), authorization: 'Bearer ' + await tokenProvider() } });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(body.error || 'คำขอไม่สำเร็จ'), { status: res.status });
   return body;
 }
+/* ฟังก์ชันขอ JWT ของ Neon Auth (ตั้งจาก App เพื่อให้ไฟล์นี้ทดสอบนอกเบราว์เซอร์ได้) */
+let tokenProvider = async () => { throw new Error('ยังไม่ได้ตั้ง token provider'); };
+export const setTokenProvider = (fn) => { tokenProvider = fn; };
 const jsonOpt = (method, body) => ({ method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
-export const googleSignIn = (credential) => api('/auth/google', jsonOpt('POST', { credential }));
-export const whoAmI = () => api('/auth/me');
-export const signOutRemote = () => api('/auth/logout', jsonOpt('POST', {})).catch(() => {});
+export const loadProfile = () => api('/auth/me');
 export const putMe = (patch) => api('/me', jsonOpt('PUT', patch)).catch(() => {});
 export const loadRemote = () => api('/events');
 

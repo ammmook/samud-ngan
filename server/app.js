@@ -1,11 +1,10 @@
-// API ของสมุดงาน: ลงชื่อเข้าใช้ Google (ตรวจ ID token ที่เซิร์ฟเวอร์) + บันทึกใน Postgres + รูปใน Neon object storage
+// API ของสมุดงาน: ตรวจ JWT จาก Neon Auth (Bearer) + บันทึกใน Postgres + รูปใน Neon object storage
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { clearCookie, cookieValue, COOKIE, readSession, setCookie, signSession } from './session.js';
 
-const CATS = ['meadow', 'sky', 'honey', 'blossom', 'lilac'];
+const PALETTES = ['meadow', 'sky', 'honey', 'blossom', 'lilac'], MAX_CATS = 30;
 const MAX_PHOTO = 5 * 1024 * 1024, MAX_JSON = 2 * 1024 * 1024, MAX_PHOTOS_PER_ENTRY = 20;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/, DATE = /^\d{4}-\d{2}-\d{2}$/;
 const PHOTO_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -30,20 +29,29 @@ function checkEvent(e) {
   const title = str(e.title, 200, 'หัวข้อ').trim(); if (!title) throw bad('หัวข้อว่าง');
   const photoIds = Array.isArray(e.photoIds) ? e.photoIds : [];
   if (photoIds.length > MAX_PHOTOS_PER_ENTRY) throw bad('รูปมากเกินไป');
-  return { id, date: e.date, start: e.start, end: e.end, cat: CATS.includes(e.cat) ? e.cat : 'meadow', title, note: str(e.note ?? '', 5000, 'รายละเอียด'), photoIds: photoIds.map((p) => str(p, 64, 'รูป')) };
+  return { id, date: e.date, start: e.start, end: e.end, cat: typeof e.cat === 'string' && e.cat && e.cat.length <= 64 ? e.cat : 'meadow', title, note: str(e.note ?? '', 5000, 'รายละเอียด'), photoIds: photoIds.map((p) => str(p, 64, 'รูป')) };
 }
 
-export function createApp({ pool, files, verifyGoogle, sessionSecret, distDir }) {
-  if (!sessionSecret || sessionSecret.length < 32) throw new Error('SESSION_SECRET ต้องยาวอย่างน้อย 32 ตัวอักษร');
-  const isSecure = (req) => process.env.NODE_ENV === 'production' || req.headers['x-forwarded-proto'] === 'https';
+/* verifyToken(jwt) ต้อง throw ถ้า token ไม่ถูกต้อง/หมดอายุ และคืน payload (sub, email, name) เมื่อผ่าน */
+export function createApp({ pool, files, verifyToken, distDir }) {
   const rmFiles = (keys) => Promise.all(keys.map((k) => files.delete(k).catch(() => {})));
 
+  /* ผู้ใช้จาก Neon Auth: token ผ่านแล้วสร้างแถวใน users ครั้งแรกที่เจอ (auth_id = sub ของ token) */
   async function requireUser(req) {
-    const uid = readSession(sessionSecret, cookieValue(req.headers.cookie, COOKIE));
-    if (uid == null) throw new HttpError(401, 'ยังไม่ได้ลงชื่อเข้าใช้');
-    return uid;
+    const m = /^Bearer (\S+)$/.exec(req.headers.authorization || '');
+    if (!m) throw new HttpError(401, 'ยังไม่ได้ลงชื่อเข้าใช้');
+    let p;
+    try { p = await verifyToken(m[1]); } catch { throw new HttpError(401, 'token ไม่ถูกต้องหรือหมดอายุ'); }
+    if (!p || !p.sub || !p.email) throw new HttpError(401, 'token ไม่มีข้อมูลผู้ใช้');
+    const found = await pool.query('SELECT id FROM users WHERE auth_id=$1', [String(p.sub)]);
+    if (found.rowCount) return Number(found.rows[0].id);
+    const ins = await pool.query(
+      `INSERT INTO users (auth_id, email, name) VALUES ($1,$2,$3)
+       ON CONFLICT (auth_id) DO UPDATE SET auth_id = EXCLUDED.auth_id RETURNING id`, [String(p.sub), p.email, p.name || '']);
+    await pool.query('SELECT seed_categories($1)', [ins.rows[0].id]); // หมวดตั้งต้น 5 หมวด (ไม่ซ้ำถ้ามีแล้ว)
+    return Number(ins.rows[0].id);
   }
-  const profile = (u) => ({ sub: u.google_sub, name: u.name || u.email, email: u.email, picture: u.picture || undefined, goal: u.daily_goal, templates: u.templates });
+  const profile = (u) => ({ goal: u.daily_goal, templates: u.templates });
   const getUser = async (uid) => {
     const { rows } = await pool.query('SELECT * FROM users WHERE id=$1', [uid]);
     if (!rows.length) throw new HttpError(401, 'ไม่พบบัญชี');
@@ -51,21 +59,6 @@ export function createApp({ pool, files, verifyGoogle, sessionSecret, distDir })
   };
 
   const routes = [
-    ['POST', /^\/api\/auth\/google$/, async (req, _m, _url, res) => {
-      const { credential } = await readJson(req);
-      if (typeof credential !== 'string' || credential.length > 4096) throw bad('credential ไม่ถูกต้อง');
-      let p;
-      try { p = await verifyGoogle(credential); } catch { throw new HttpError(401, 'ยืนยันตัวตนกับ Google ไม่สำเร็จ'); }
-      if (!p || !p.sub || !p.email || p.email_verified === false) throw new HttpError(401, 'บัญชี Google ไม่มีอีเมลที่ยืนยันแล้ว');
-      const pic = typeof p.picture === 'string' && p.picture.startsWith('https://') ? p.picture : null;
-      const { rows } = await pool.query(
-        `INSERT INTO users (google_sub, email, name, picture) VALUES ($1,$2,$3,$4)
-         ON CONFLICT (google_sub) DO UPDATE SET email=EXCLUDED.email, name=EXCLUDED.name, picture=EXCLUDED.picture RETURNING *`,
-        [String(p.sub), p.email, p.name || '', pic]);
-      res.setHeader('set-cookie', setCookie(signSession(sessionSecret, Number(rows[0].id)), isSecure(req)));
-      return [200, profile(rows[0])];
-    }],
-    ['POST', /^\/api\/auth\/logout$/, async (req, _m, _url, res) => { res.setHeader('set-cookie', clearCookie(isSecure(req))); return [200, { ok: true }]; }],
     ['GET', /^\/api\/auth\/me$/, async (req) => [200, profile(await getUser(await requireUser(req)))]],
     ['PUT', /^\/api\/me$/, async (req) => {
       const uid = await requireUser(req), b = await readJson(req);
@@ -77,11 +70,38 @@ export function createApp({ pool, files, verifyGoogle, sessionSecret, distDir })
         if (!Array.isArray(b.templates) || b.templates.length > 12) throw bad('แม่แบบไม่ถูกต้อง');
         const t = b.templates.map((x) => {
           if (!x || !TIME.test(x.start) || !TIME.test(x.end)) throw bad('แม่แบบไม่ถูกต้อง');
-          return { id: str(x.id, 64, 'id'), title: str(x.title, 200, 'หัวข้อ'), cat: CATS.includes(x.cat) ? x.cat : 'meadow', start: x.start, end: x.end, note: str(x.note ?? '', 5000, 'รายละเอียด') };
+          return { id: str(x.id, 64, 'id'), title: str(x.title, 200, 'หัวข้อ'), cat: typeof x.cat === 'string' ? x.cat.slice(0, 64) : 'meadow', start: x.start, end: x.end, note: str(x.note ?? '', 5000, 'รายละเอียด') };
         });
         await pool.query('UPDATE users SET templates=$2::jsonb WHERE id=$1', [uid, JSON.stringify(t)]);
       }
       return [200, { ok: true }];
+    }],
+    ['GET', /^\/api\/categories$/, async (req) => {
+      const uid = await requireUser(req);
+      const { rows } = await pool.query('SELECT id, label, palette FROM categories WHERE user_id=$1 ORDER BY position, label', [uid]);
+      return [200, rows];
+    }],
+    // เพิ่มหมวดใหม่หรือแก้ชื่อ/สีของหมวดเดิม (id สร้างจากหน้าเว็บ)
+    ['PUT', /^\/api\/categories\/([\w-]{1,64})$/, async (req, m) => {
+      const uid = await requireUser(req), b = await readJson(req);
+      const label = str(b.label, 40, 'ชื่อหมวด').trim();
+      if (!label) throw bad('ชื่อหมวดว่าง');
+      if (!PALETTES.includes(b.palette)) throw bad('สีไม่ถูกต้อง');
+      const n = await pool.query('SELECT count(*)::int n, bool_or(id=$2) AS has FROM categories WHERE user_id=$1', [uid, m[1]]);
+      if (!n.rows[0].has && n.rows[0].n >= MAX_CATS) throw bad('มีหมวดครบ ' + MAX_CATS + ' หมวดแล้ว');
+      await pool.query(
+        `INSERT INTO categories (user_id, id, label, palette, position)
+         VALUES ($1,$2,$3,$4, COALESCE((SELECT max(position)+1 FROM categories WHERE user_id=$1), 0))
+         ON CONFLICT (user_id, id) DO UPDATE SET label=EXCLUDED.label, palette=EXCLUDED.palette`, [uid, m[1], label, b.palette]);
+      return [200, { ok: true }];
+    }],
+    ['DELETE', /^\/api\/categories\/([\w-]{1,64})$/, async (req, m) => {
+      const uid = await requireUser(req);
+      const used = await pool.query('SELECT count(*)::int n FROM entries WHERE user_id=$1 AND cat=$2', [uid, m[1]]);
+      if (used.rows[0].n) throw new HttpError(409, `ยังมี ${used.rows[0].n} บันทึกใช้หมวดนี้อยู่ ย้ายไปหมวดอื่นก่อนลบ`);
+      const r = await pool.query('DELETE FROM categories WHERE user_id=$1 AND id=$2', [uid, m[1]]);
+      if (!r.rowCount) throw new HttpError(404, 'ไม่พบหมวด');
+      return [200, { deleted: true }];
     }],
     ['GET', /^\/api\/events$/, async (req) => {
       const uid = await requireUser(req);
@@ -166,11 +186,6 @@ export function createApp({ pool, files, verifyGoogle, sessionSecret, distDir })
     const send = (code, body) => { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); };
     try {
       if (!url.pathname.startsWith('/api/')) { if (serveStatic(req, res, url)) return; return send(404, { error: 'not found' }); }
-      // กัน CSRF: คำขอที่แก้ข้อมูลต้องมาจากหน้าเว็บของเราเอง (Origin ตรงกับ Host)
-      if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin) {
-        let h = ''; try { h = new URL(req.headers.origin).host; } catch { /* ว่าง */ }
-        if (h !== req.headers.host) throw new HttpError(403, 'origin ไม่ถูกต้อง');
-      }
       if (url.pathname === '/api/health') { const { rows } = await pool.query('SELECT now() AS now'); return send(200, { ok: true, db: rows[0].now }); }
       for (const [method, re, fn] of routes) {
         const m = req.method === method && url.pathname.match(re);
@@ -178,7 +193,7 @@ export function createApp({ pool, files, verifyGoogle, sessionSecret, distDir })
       }
       send(404, { error: 'not found' });
     } catch (e) {
-      const pg = ['23514', '23502', '22007', '22P02', '22001'].includes(e.code);
+      const pg = ['23514', '23502', '22007', '22P02', '22001', '23503'].includes(e.code);
       const code = e instanceof HttpError ? e.code : pg ? 400 : 500;
       if (code === 500) console.error(e);
       send(code, { error: code === 500 ? 'เซิร์ฟเวอร์ผิดพลาด' : e.message });

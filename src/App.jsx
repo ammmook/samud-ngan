@@ -8,7 +8,8 @@ import SummaryPage from './pages/SummaryPage.jsx';
 import { ds } from './lib/dates.js';
 import { useToday } from './lib/hooks.js';
 import { demoData, loadEvents, pref, saveEvents, setPref } from './lib/storage.js';
-import { createSyncer, googleSignIn, loadRemote, putMe, signOutRemote, whoAmI } from './lib/remote.js';
+import { createSyncer, loadProfile, loadRemote, putMe, setTokenProvider } from './lib/remote.js';
+import { currentUser, forgetToken, getToken, signInWithGoogle, signOutAuth } from './lib/auth.js';
 import { saveTemplates } from './lib/templates.js';
 
 function Workspace({ user, onSignOut }) {
@@ -81,32 +82,39 @@ function Workspace({ user, onSignOut }) {
   );
 }
 
+setTokenProvider(getToken);
+
 export default function App() {
-  // ผู้เยี่ยมชมจำไว้ในเครื่อง ส่วนผู้ใช้ Google ถามเซิร์ฟเวอร์จาก session cookie
+  // ผู้เยี่ยมชม (ดูแบบไม่ลงชื่อ) จำไว้ในเครื่อง ส่วนผู้ใช้ Google ถาม Neon Auth ว่ามี session ไหม
   const [user, setUser] = useState(() => {
     let oldGuest = false; // รุ่นก่อนเก็บผู้ใช้ไว้ที่ sn-user
     try { oldGuest = !!(JSON.parse(pref('sn-user', 'null')) || {}).guest; } catch (e) { /* ไม่เป็นไร */ }
     return pref('sn-guest', '') === '1' || oldGuest ? { guest: true } : undefined;
   });
+  const [authError, setAuthError] = useState('');
   useEffect(() => {
     if (user !== undefined) return;
-    whoAmI().then((p) => setUser(hydrate(p))).catch(() => setUser(null));
+    (async () => {
+      const u = await currentUser();
+      if (!u) return null;
+      // เป้ากับแม่แบบอยู่ที่เซิร์ฟเวอร์ นำลงที่เก็บในเครื่องเพื่อให้ส่วนที่เหลือของแอปอ่านได้เหมือนเดิม
+      let p;
+      try { p = await loadProfile(); } catch (e) {
+        setAuthError('ลงชื่อเข้าใช้กับ Google สำเร็จแล้ว แต่เชื่อมต่อเซิร์ฟเวอร์ของแอปไม่ได้ (' + e.message + ') ตรวจว่ารัน npm run dev หรือ npm run api อยู่ แล้วโหลดหน้านี้ใหม่');
+        return null;
+      }
+      setPref('sn-goal', String(p.goal));
+      saveTemplates('events:' + u.id, p.templates || [], { remote: false });
+      return { sub: u.id, name: u.name, email: u.email, picture: u.picture };
+    })().then(setUser).catch((e) => { setAuthError('ตรวจสอบการลงชื่อเข้าใช้ไม่สำเร็จ: ' + e.message); setUser(null); });
   }, [user]);
 
-  // นำเป้ากับแม่แบบจากเซิร์ฟเวอร์ลงที่เก็บในเครื่อง เพื่อให้ส่วนที่เหลือของแอปอ่านได้เหมือนเดิม
-  function hydrate(p) {
-    setPref('sn-goal', String(p.goal));
-    saveTemplates('events:' + p.sub, p.templates || [], { remote: false });
-    return { sub: p.sub, name: p.name, email: p.email, picture: p.picture };
-  }
-  const signInGoogle = async (credential) => setUser(hydrate(await googleSignIn(credential)));
   const signInGuest = () => { setPref('sn-guest', '1'); setUser({ guest: true }); };
   const signOut = () => {
     setPref('sn-guest', ''); setPref('sn-user', 'null'); setUser(null);
-    signOutRemote();
-    try { window.google && window.google.accounts.id.disableAutoSelect(); } catch (e) { /* ไม่เป็นไร */ }
+    forgetToken(); signOutAuth();
   };
   if (user === undefined) return null;
-  if (!user) return <Login onGuest={signInGuest} onGoogle={signInGoogle} />;
+  if (!user) return <Login onGuest={signInGuest} onGoogle={signInWithGoogle} notice={authError} />;
   return <Workspace key={user.guest ? 'guest' : user.sub} user={user} onSignOut={signOut} />;
 }

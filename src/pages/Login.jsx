@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Icon } from '../ds.js';
 import Leaves from '../components/Leaves.jsx';
 import Plant from '../components/Plant.jsx';
 import '../login.css';
-
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 function GoogleG() {
   return (
@@ -47,37 +45,21 @@ function GrowingPlant() {
   return <Plant key={stage} stage={stage} cat="meadow" size={64} />;
 }
 
-export default function Login({ onGoogle, onGuest }) {
-  const btn = useRef(null);
-  const onGoogleRef = useRef(onGoogle);
-  onGoogleRef.current = onGoogle;
+export default function Login({ onGoogle, onGuest, notice }) {
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (!CLIENT_ID) return undefined;
-    const fail = () => setMsg('ลงชื่อเข้าใช้ด้วย Google ไม่สำเร็จ ลองอีกครั้ง หรือเข้าใช้แบบผู้เยี่ยมชมไปก่อน');
-    const init = () => {
-      if (!window.google || !btn.current) return;
-      window.google.accounts.id.initialize({
-        client_id: CLIENT_ID,
-        // เซิร์ฟเวอร์เป็นผู้ตรวจ ID token (ลายเซ็น, aud, iss, exp) ไม่ใช่ฝั่งเบราว์เซอร์
-        callback: (res) => { Promise.resolve(onGoogleRef.current(res.credential)).catch(fail); },
-      });
-      window.google.accounts.id.renderButton(btn.current, { theme: 'outline', size: 'large', shape: 'pill', text: 'signin_with', locale: 'th', width: 320 });
-    };
-    let script = document.getElementById('gsi-client');
-    if (window.google) init();
-    else {
-      if (!script) {
-        script = document.createElement('script');
-        script.id = 'gsi-client'; script.src = 'https://accounts.google.com/gsi/client'; script.async = true;
-        document.head.appendChild(script);
-      }
-      script.addEventListener('load', init);
-      script.addEventListener('error', fail);
+  // กดแล้วเบราว์เซอร์ไปหน้า Google (Neon Auth) แล้วกลับมาที่หน้านี้พร้อม session
+  const google = async () => {
+    setMsg(''); setBusy(true);
+    try {
+      const r = await onGoogle();
+      if (r && r.error) throw new Error(r.error.message);
+    } catch (e) {
+      setBusy(false);
+      setMsg('ลงชื่อเข้าใช้ด้วย Google ไม่สำเร็จ ลองอีกครั้ง หรือเข้าดูแบบผู้เยี่ยมชมไปก่อน');
     }
-    return () => { if (script) { script.removeEventListener('load', init); script.removeEventListener('error', fail); } };
-  }, []);
+  };
 
   return (
     <div className="lg">
@@ -112,15 +94,11 @@ export default function Login({ onGoogle, onGuest }) {
           <p className="login__lead lg__rise" style={{ '--i': 1 }}>ลงชื่อเข้าใช้ เพื่อแยกบันทึกของคุณจากคนอื่นที่ใช้เครื่องเดียวกัน</p>
 
           <div className="lg__rise" style={{ '--i': 2 }}>
-            {CLIENT_ID ? (
-              <div className="login__gbox" ref={btn} />
-            ) : (
-              <button type="button" className="gbtn lg__g" onClick={() => setMsg('ยังลงชื่อเข้าใช้ด้วย Google ไม่ได้ในตอนนี้ เข้าใช้แบบผู้เยี่ยมชมไปก่อนได้เลย')}>
-                <GoogleG />ลงชื่อเข้าใช้ด้วย Google
-              </button>
-            )}
+            <button type="button" className="gbtn lg__g" onClick={google} disabled={busy}>
+              <GoogleG />{busy ? 'กำลังไปหน้า Google…' : 'ลงชื่อเข้าใช้ด้วย Google'}
+            </button>
           </div>
-          {msg && <p className="field__err" role="alert">{msg}</p>}
+          {(msg || notice) && <p className="field__err" role="alert">{msg || notice}</p>}
 
           <div className="login__or lg__rise" style={{ '--i': 3 }} aria-hidden="true"><span>หรือ</span></div>
 
