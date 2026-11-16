@@ -156,3 +156,15 @@
   .plant--grow g, .cmp__bar, .hcol__bar, .find__list { animation: none !important; }
   .find__cat { transition: none !important; }
 }
+
+/* แม่แบบและทำซ้ำ */
+.tpls { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.tpl { display: inline-flex; align-items: stretch; border-radius: var(--radius-pill); background: var(--c-fill); color: var(--c-ink); overflow: hidden; }
+.tpl__use { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: inherit; font: 500 14px/22px var(--font-body); padding: 6px 6px 6px 12px; min-height: 36px; cursor: pointer; }
+.tpl__use small { font-weight: 400; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.tpl__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-solid); }
+.tpl__del { border: 0; background: transparent; color: inherit; width: 32px; min-height: 36px; display: grid; place-items: center; cursor: pointer; }
+.tpl__use:hover, .tpl__del:hover { background: rgba(0, 0, 0, 0.08); }
+.rep__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.rep__count { display: inline-flex; align-items: center; gap: var(--space-2); font: 500 14px/22px var(--font-body); }
+.field__hint { font: 400 13px/20px var(--font-body); color: var(--ink-muted); }

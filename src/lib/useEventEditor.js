@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { minStr, uid } from './dates.js';
+import { cloneTo, repeatDates } from './repeat.js';
 
 /* เปิด เพิ่ม แก้ ลบ บันทึกผ่านหน้าต่างเดียว */
 export function useEventEditor({ events, setEvents, notify, defaultDate, today, onSaved }) {
@@ -15,16 +16,25 @@ export function useEventEditor({ events, setEvents, notify, defaultDate, today, 
         if (h * 60 > 9 * 60) { s = minStr(h * 60); e = minStr(h * 60 + 60); }
       }
     }
-    setEditor({ isNew: true, draft: { id: uid(), date: date || defaultDate, start: s, end: e, title: '', cat: 'meadow', note: '', photos: [] } });
+    setEditor({ isNew: true, draft: { id: uid(), date: date || defaultDate, start: s, end: e, title: '', cat: 'meadow', note: '', photos: [], repeat: { kind: 'none', count: 4 } } });
   };
   const openEvent = (ev) => setEditor({ isNew: false, draft: JSON.parse(JSON.stringify(ev)) });
   const close = () => setEditor(null);
 
   const save = (dr) => {
-    const exists = events.some((e) => e.id === dr.id);
-    setEvents((prev) => (exists ? prev.map((e) => (e.id === dr.id ? dr : e)) : prev.concat(dr)));
+    const { repeat, ...ev } = dr;
+    const exists = events.some((e) => e.id === ev.id);
     setEditor(null);
-    if (onSaved) onSaved(dr);
+    if (onSaved) onSaved(ev);
+    if (!exists && repeat && repeat.kind !== 'none') {
+      const dates = repeatDates(ev.date, repeat.kind, repeat.count);
+      const list = dates.map((date, i) => (i === 0 ? ev : cloneTo(ev, date, uid)));
+      const ids = new Set(list.map((x) => x.id));
+      setEvents((prev) => prev.concat(list));
+      notify(`บันทึกงานแล้ว และทำซ้ำเพิ่มอีก ${list.length - 1} ครั้ง`, () => setEvents((prev) => prev.filter((x) => !ids.has(x.id))));
+      return;
+    }
+    setEvents((prev) => (exists ? prev.map((e) => (e.id === ev.id ? ev : e)) : prev.concat(ev)));
     notify('บันทึกงานแล้ว');
   };
 

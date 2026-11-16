@@ -63,6 +63,31 @@ describe('readGoogleToken', () => {
 
 import { bestWindow, eventsToCsv, filterEvents, hourBuckets, longestStreak, plantStage, rangeTotals, streakOf, weekdayAverages } from './stats.js';
 
+import { copyDay, repeatDates } from './repeat.js';
+
+describe('repeat and copy', () => {
+  it('repeatDates handles daily, weekdays, weekly and caps the count', () => {
+    expect(repeatDates('2026-11-16', 'weekly', 3)).toEqual(['2026-11-16', '2026-11-23', '2026-11-30']);
+    expect(repeatDates('2026-11-13', 'weekdays', 3)).toEqual(['2026-11-13', '2026-11-16', '2026-11-17']); // ศ. แล้วข้ามส-อา
+    expect(repeatDates('2026-11-16', 'daily', 2)).toEqual(['2026-11-16', '2026-11-17']);
+    expect(repeatDates('2026-11-16', 'none', 5)).toEqual(['2026-11-16']);
+    expect(repeatDates('2026-11-16', 'daily', 999).length).toBe(52);
+  });
+  it('copyDay copies without photos and skips entries already on the target day', () => {
+    let n = 0; const id = () => 'n' + n++;
+    const list = [
+      { id: 'a', date: '2026-11-15', start: '09:00', end: '10:00', title: 'ประชุม', cat: 'sky', note: '', photos: [{ id: 'p', src: 'x' }] },
+      { id: 'b', date: '2026-11-15', start: '13:00', end: '14:00', title: 'เขียนรายงาน', cat: 'meadow', note: '', photos: [] },
+      { id: 'c', date: '2026-11-16', start: '09:00', end: '10:00', title: 'ประชุม', cat: 'sky', note: '', photos: [] },
+    ];
+    const r = copyDay(list, '2026-11-15', '2026-11-16', id);
+    expect(r).toMatchObject({ skipped: 1, total: 2 });
+    expect(r.fresh).toHaveLength(1);
+    expect(r.fresh[0]).toMatchObject({ title: 'เขียนรายงาน', date: '2026-11-16', photos: [] });
+    expect(r.fresh[0].id).not.toBe('b');
+  });
+});
+
 describe('longestStreak', () => {
   it('finds the longest run, bridging weekends', () => {
     const by = { '2026-11-02': 1, '2026-11-03': 1, '2026-11-05': 1, '2026-11-06': 1, '2026-11-09': 1, '2026-11-10': 1 };

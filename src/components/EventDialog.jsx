@@ -3,10 +3,12 @@ import { Button, CATS, CategoryTag, Icon, PhotoStrip } from '../ds.js';
 import { DateField, TimeRange24 } from './TimeFields.jsx';
 import { longDate, toMin, uid } from '../lib/dates.js';
 import { shrink } from '../lib/storage.js';
+import { MAX_REPEAT, REPEAT_KINDS } from '../lib/repeat.js';
 
 const MAX_PHOTOS = 12;
+const COUNTS = [2, 3, 4, 5, 6, 8, 10, 12, 26, MAX_REPEAT];
 
-export default function EventDialog({ draft, isNew, onSave, onDelete, onClose }) {
+export default function EventDialog({ draft, isNew, templates = [], onSaveTemplate, onDeleteTemplate, onSave, onDelete, onClose }) {
   const [d, setD] = useState(draft);
   const [tried, setTried] = useState(false);
   const [photoMsg, setPhotoMsg] = useState('');
@@ -27,6 +29,8 @@ export default function EventDialog({ draft, isNew, onSave, onDelete, onClose })
   const requestClose = () => { if (dirty) setConfirmDiscard(true); else onClose(); };
 
   const set = (k, v) => setD((o) => ({ ...o, [k]: v }));
+  const applyTemplate = (t) => setD((o) => ({ ...o, title: t.title, cat: t.cat, start: t.start, end: t.end, note: t.note || '' }));
+  const setRepeat = (patch) => setD((o) => ({ ...o, repeat: { ...o.repeat, ...patch } }));
   const errTitle = !d.title.trim() ? 'ใส่ชื่องานก่อน แล้วกด "บันทึกงาน" อีกครั้ง' : '';
   const errDate = !d.date ? 'เลือกวันที่ของบันทึก' : '';
   const timeMissing = !d.start || !d.end;
@@ -81,6 +85,21 @@ export default function EventDialog({ draft, isNew, onSave, onDelete, onClose })
           </div>
 
           <div className="dlg__body">
+            {isNew && templates.length > 0 && (
+              <div className="field dlg__wide">
+                <span className="field__label" id="f-tpl">เริ่มจากแม่แบบ<span className="field__opt">กดเพื่อกรอกให้ทั้งฟอร์ม</span></span>
+                <div className="tpls" role="group" aria-labelledby="f-tpl">
+                  {templates.map((t) => (
+                    <span key={t.id} className={'tpl sn-cat--' + t.cat}>
+                      <button type="button" className="tpl__use" onClick={() => applyTemplate(t)}>
+                        <span className="tpl__dot" aria-hidden="true" />{t.title}<small>{t.start}–{t.end}</small>
+                      </button>
+                      <button type="button" className="tpl__del" aria-label={'ลบแม่แบบ ' + t.title} onClick={() => onDeleteTemplate(t)}><Icon name="x" size={14} /></button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="dlg__col">
               <div className="field">
                 <label className="field__label" htmlFor="f-title">หัวข้อ</label>
@@ -116,6 +135,25 @@ export default function EventDialog({ draft, isNew, onSave, onDelete, onClose })
                   ))}
                 </div>
               </div>
+              {isNew && d.repeat && (
+                <div className="field">
+                  <span className="field__label" id="f-rep">ทำซ้ำ</span>
+                  <div className="rep__row">
+                    <select className="sel" aria-labelledby="f-rep" value={d.repeat.kind} onChange={(e) => setRepeat({ kind: e.target.value })}>
+                      {REPEAT_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+                    </select>
+                    {d.repeat.kind !== 'none' && (
+                      <label className="rep__count">
+                        <select className="sel" aria-label="จำนวนครั้งที่ทำซ้ำ รวมครั้งแรก" value={d.repeat.count} onChange={(e) => setRepeat({ count: Number(e.target.value) })}>
+                          {COUNTS.map((n) => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                        ครั้ง
+                      </label>
+                    )}
+                  </div>
+                  {d.repeat.kind !== 'none' && <span className="field__hint">สร้างบันทึกแยกให้ทุกครั้งตั้งแต่วันที่เลือก ไม่ติดรูป แก้หรือลบทีละวันได้</span>}
+                </div>
+              )}
             </div>
 
             <div className="field dlg__wide">
@@ -142,6 +180,7 @@ export default function EventDialog({ draft, isNew, onSave, onDelete, onClose })
           ) : (
             <div className="dlg__foot">
               {!isNew && <Button variant="ghost" icon="trash" onClick={onDelete}>ลบบันทึก</Button>}
+              <Button variant="ghost" disabled={!d.title.trim()} onClick={() => onSaveTemplate(d)}>เก็บเป็นแม่แบบ</Button>
               <span className="spacer" />
               <Button variant="ghost" onClick={requestClose}>ยกเลิก</Button>
               <Button type="submit" variant="primary" icon="check">บันทึกงาน</Button>

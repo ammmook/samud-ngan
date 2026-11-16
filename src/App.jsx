@@ -55,7 +55,7 @@ function Workspace({ user, onSignOut }) {
           </div>
         )}
         {page === 'calendar'
-          ? <CalendarPage cursor={cursor} setCursor={setCursor} events={events} setEvents={setEvents} today={today} notify={notify} loaded={loaded} goal={goal} onGoal={setGoal} />
+          ? <CalendarPage cursor={cursor} setCursor={setCursor} events={events} setEvents={setEvents} today={today} notify={notify} loaded={loaded} goal={goal} onGoal={setGoal} storeKey={storeKey} />
           : <SummaryPage events={events} today={today} notify={notify} who={user.guest ? '' : user.name} />}
       </main>
       {toast && (

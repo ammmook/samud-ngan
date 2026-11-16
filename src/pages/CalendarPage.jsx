@@ -6,11 +6,13 @@ import FindBar from '../components/FindBar.jsx';
 import MonthView from '../components/MonthView.jsx';
 import TimeGrid from '../components/TimeGrid.jsx';
 import { Q_PHONE } from '../lib/breakpoints.js';
-import { M_FULL, M_SHORT, addDays, addMonths, ds, longDate, pd, weekStart } from '../lib/dates.js';
+import { M_FULL, M_SHORT, addDays, addMonths, ds, longDate, pd, uid, weekStart } from '../lib/dates.js';
 import { useMedia } from '../lib/hooks.js';
 import { pref, setPref } from '../lib/storage.js';
 import { useDragMove } from '../lib/useDragMove.js';
+import { copyDay } from '../lib/repeat.js';
 import { filterEvents, hoursByDate, streakOf } from '../lib/stats.js';
+import { addTemplate, loadTemplates, saveTemplates } from '../lib/templates.js';
 import { useEventEditor } from '../lib/useEventEditor.js';
 
 const VIEWS = [{ value: 'month', label: 'เดือน' }, { value: 'week', label: 'สัปดาห์' }, { value: 'day', label: 'วัน' }];
@@ -34,7 +36,7 @@ function titleOf(view, cursor, range) {
   return { title: longDate(cursor), unit: 'วัน' };
 }
 
-export default function CalendarPage({ cursor, setCursor, events, setEvents, today, notify, loaded, goal, onGoal }) {
+export default function CalendarPage({ cursor, setCursor, events, setEvents, today, notify, loaded, goal, onGoal, storeKey }) {
   const [view, setView] = useState(() => { const v = pref('sn-view', 'month'); return VIEWS.some((x) => x.value === v) ? v : 'month'; });
   const mobile = useMedia(Q_PHONE);
   useEffect(() => { setPref('sn-view', view); }, [view]);
@@ -50,6 +52,15 @@ export default function CalendarPage({ cursor, setCursor, events, setEvents, tod
   const todayHours = by[today] || 0;
   const streak = useMemo(() => streakOf(by, today), [by, today]);
 
+  const [templates, setTemplates] = useState(() => loadTemplates(storeKey));
+  const putTemplates = (list) => { setTemplates(list); saveTemplates(storeKey, list); };
+  const saveTemplate = (d) => { putTemplates(addTemplate(templates, d)); notify(`เก็บ "${d.title.trim()}" เป็นแม่แบบแล้ว`); };
+  const deleteTemplate = (t) => {
+    const before = templates;
+    putTemplates(templates.filter((x) => x.id !== t.id));
+    notify('ลบแม่แบบแล้ว', () => putTemplates(before));
+  };
+
   const drag = useDragMove({ events, setEvents, notify });
   const range = useMemo(() => rangeOf(view, cursor), [view, cursor]);
 
@@ -62,6 +73,20 @@ export default function CalendarPage({ cursor, setCursor, events, setEvents, tod
   const eventsById = useMemo(() => { const m = {}; events.forEach((e) => { m[e.id] = e; }); return m; }, [events]);
   const none = useMemo(() => [], []);
   const count = useMemo(() => shownEvents.filter((e) => e.date >= range.from && e.date <= range.to).length, [shownEvents, range]);
+
+  /* ทำซ้ำจากเมื่อวาน: ในมุมมองวัน ใช้วันก่อนหน้าของวันที่ดูอยู่ ที่อื่นใช้วันนี้ */
+  const target = view === 'day' ? cursor : today;
+  const source = addDays(target, -1);
+  const sourceCount = useMemo(() => events.filter((e) => e.date === source).length, [events, source]);
+  const copyLabel = target === today ? 'ทำซ้ำจากเมื่อวาน' : 'ทำซ้ำจากวันก่อน';
+  const copyFromYesterday = () => {
+    const r = copyDay(events, source, target, uid);
+    if (!r.fresh.length) { notify(r.total ? 'บันทึกของวันก่อนมีอยู่ในวันนี้ครบแล้ว' : 'วันก่อนยังไม่มีบันทึกให้ทำซ้ำ'); return; }
+    const ids = new Set(r.fresh.map((x) => x.id));
+    setEvents((prev) => prev.concat(r.fresh));
+    if (target < range.from || target > range.to) setCursor(target);
+    notify(`ทำซ้ำ ${r.fresh.length} บันทึกแล้ว${r.skipped ? ` (ข้าม ${r.skipped} ที่มีอยู่แล้ว)` : ''}`, () => setEvents((prev) => prev.filter((x) => !ids.has(x.id))));
+  };
 
   const { title, unit } = titleOf(view, cursor, range);
   const isCurrent = today >= range.from && today <= range.to;
@@ -92,6 +117,7 @@ export default function CalendarPage({ cursor, setCursor, events, setEvents, tod
           <Button variant="soft" size="sm" onClick={() => setCursor(today)}>วันนี้</Button>
         </div>
         <Segmented options={VIEWS} value={view} onChange={setView} aria-label="มุมมองปฏิทิน" />
+        <Button className="top__copy" variant="ghost" size="sm" disabled={!sourceCount} onClick={copyFromYesterday}>{copyLabel}</Button>
         <Button className="top__add" variant={addVariant} icon="plus" onClick={() => editor.openNew()}>เพิ่มบันทึก</Button>
       </header>
 
@@ -124,6 +150,7 @@ export default function CalendarPage({ cursor, setCursor, events, setEvents, tod
 
       {editor.editor && (
         <EventDialog key={editor.editor.draft.id} isNew={editor.editor.isNew} draft={editor.editor.draft}
+          templates={templates} onSaveTemplate={saveTemplate} onDeleteTemplate={deleteTemplate}
           onSave={editor.save} onDelete={editor.remove} onClose={editor.close} />
       )}
     </>
