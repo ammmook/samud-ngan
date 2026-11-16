@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Icon } from '../ds.js';
 import Leaves from '../components/Leaves.jsx';
 import Plant from '../components/Plant.jsx';
-import { readGoogleToken } from '../lib/googleToken.js';
 import '../login.css';
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -61,7 +60,8 @@ export default function Login({ onGoogle, onGuest }) {
       if (!window.google || !btn.current) return;
       window.google.accounts.id.initialize({
         client_id: CLIENT_ID,
-        callback: (res) => { try { onGoogleRef.current(readGoogleToken(res.credential, CLIENT_ID)); } catch (e) { fail(); } },
+        // เซิร์ฟเวอร์เป็นผู้ตรวจ ID token (ลายเซ็น, aud, iss, exp) ไม่ใช่ฝั่งเบราว์เซอร์
+        callback: (res) => { Promise.resolve(onGoogleRef.current(res.credential)).catch(fail); },
       });
       window.google.accounts.id.renderButton(btn.current, { theme: 'outline', size: 'large', shape: 'pill', text: 'signin_with', locale: 'th', width: 320 });
     };

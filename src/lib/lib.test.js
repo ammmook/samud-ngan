@@ -1,7 +1,5 @@
-import { Buffer } from 'node:buffer';
 import { describe, expect, it } from 'vitest';
 import { addDays, addMonths, evHours, layoutDay, minStr, toMin, weekStart } from './dates.js';
-import { readGoogleToken } from './googleToken.js';
 
 describe('dates', () => {
   it('addMonths clamps to the last day of a shorter month', () => {
@@ -41,23 +39,6 @@ describe('layoutDay', () => {
   it('does not widen later non-overlapping events', () => {
     const out = layoutDay([ev('a', '09:00', '11:00'), ev('b', '10:00', '12:00'), ev('c', '13:00', '14:00')]);
     expect(out.find((x) => x.e.id === 'c').lanes).toBe(1);
-  });
-});
-
-describe('readGoogleToken', () => {
-  const jwt = (p) => 'x.' + Buffer.from(JSON.stringify(p)).toString('base64url') + '.y';
-  const ok = { aud: 'cid', iss: 'https://accounts.google.com', exp: 2000, sub: '1', name: 'สมชาย', email: 'a@b.c', picture: 'https://x/y.png' };
-  it('accepts a valid token', () => {
-    expect(readGoogleToken(jwt(ok), 'cid', 1_000_000).name).toBe('สมชาย');
-  });
-  it('rejects wrong audience, issuer, expired token, or missing client id', () => {
-    expect(() => readGoogleToken(jwt({ ...ok, aud: 'other' }), 'cid', 1_000_000)).toThrow();
-    expect(() => readGoogleToken(jwt({ ...ok, iss: 'evil.example' }), 'cid', 1_000_000)).toThrow();
-    expect(() => readGoogleToken(jwt(ok), 'cid', 3_000_000)).toThrow();
-    expect(() => readGoogleToken(jwt(ok), '', 1_000_000)).toThrow();
-  });
-  it('drops non-https picture urls', () => {
-    expect(readGoogleToken(jwt({ ...ok, picture: 'javascript:alert(1)' }), 'cid', 1_000_000).picture).toBeUndefined();
   });
 });
 

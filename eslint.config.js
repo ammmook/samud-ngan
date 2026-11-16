@@ -19,5 +19,5 @@ export default [
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
     },
   },
-  { files: ['*.config.js'], languageOptions: { globals: { ...globals.node } } },
+  { files: ['*.config.js', 'server/**/*.js', 'neon.ts'], languageOptions: { globals: { ...globals.node } } },
 ];
