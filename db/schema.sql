@@ -1,0 +1,60 @@
+-- สมุดงาน: สคีมา PostgreSQL (3 ตาราง)
+-- ตอนนี้แอปเก็บทุกอย่างในเบราว์เซอร์ (IndexedDB/localStorage) ไฟล์นี้คือแบบสำหรับย้ายขึ้นฐานข้อมูลจริง
+-- โหมดผู้เยี่ยมชม (guest) ยังเก็บในเครื่องเหมือนเดิม ไม่เข้าตารางเหล่านี้
+
+-- ---------- up ----------
+
+CREATE TABLE users (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  google_sub  text        NOT NULL UNIQUE,            -- user.sub จาก Google
+  email       text        NOT NULL,
+  name        text        NOT NULL DEFAULT '',
+  picture     text,
+  daily_goal  smallint    NOT NULL DEFAULT 6 CHECK (daily_goal BETWEEN 1 AND 12),  -- sn-goal
+  templates   jsonb       NOT NULL DEFAULT '[]'
+              CHECK (jsonb_typeof(templates) = 'array' AND jsonb_array_length(templates) <= 12),
+              -- แม่แบบ [{id,title,cat,start,end,note}] ไม่เกิน 12 อัน อ่านทีเดียวทั้งชุด ไม่เคยค้นรายฟิลด์
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX users_email_key ON users (lower(email));
+
+CREATE TABLE entries (
+  id          text        PRIMARY KEY CHECK (length(id) BETWEEN 1 AND 64),  -- uuid ที่ไคลเอนต์สร้าง (ใช้ upsert ตอนซิงก์)
+  user_id     bigint      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  entry_date  date        NOT NULL,
+  start_time  time        NOT NULL,
+  end_time    time        NOT NULL,
+  cat         text        NOT NULL DEFAULT 'meadow'
+              CHECK (cat IN ('meadow','sky','honey','blossom','lilac')),
+  title       text        NOT NULL CHECK (length(btrim(title)) > 0),
+  note        text        NOT NULL DEFAULT '',
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  CHECK (end_time > start_time)
+);
+-- มุมมองเดือน/สัปดาห์/วัน, เป้ารายวัน, streak, สวน, รายงาน: ล้วนเป็น "ของ user ช่วงวันที่ เรียงตามเวลา"
+CREATE INDEX entries_user_date_idx ON entries (user_id, entry_date, start_time);
+
+CREATE TABLE entry_photos (
+  id          text         PRIMARY KEY CHECK (length(id) BETWEEN 1 AND 64),
+  entry_id    text         NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+  position    smallint     NOT NULL DEFAULT 0,
+  storage_key text         NOT NULL UNIQUE,   -- คีย์ไฟล์ใน Neon object storage เช่น u/{user_id}/{uuid}.jpg (ไฟล์จริงไม่อยู่ใน DB)
+  content_type text        NOT NULL DEFAULT 'image/jpeg',
+  size_bytes  integer      NOT NULL CHECK (size_bytes > 0),
+  created_at  timestamptz  NOT NULL DEFAULT now()
+);
+CREATE INDEX entry_photos_entry_idx ON entry_photos (entry_id, position);  -- รูปของบันทึกหนึ่งอัน เรียงตามลำดับ
+
+-- updated_at ต้องอัปเดตเองตอนแก้ไข (DEFAULT now() ทำงานแค่ตอน insert)
+CREATE FUNCTION set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN NEW.updated_at := now(); RETURN NEW; END $$;
+CREATE TRIGGER entries_updated BEFORE UPDATE ON entries
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ---------- down ----------
+-- DROP TRIGGER entries_updated ON entries;
+-- DROP FUNCTION set_updated_at();
+-- DROP TABLE entry_photos;   -- ลบรูปทั้งหมด ย้อนกลับไม่ได้
+-- DROP TABLE entries;        -- ลบบันทึกทั้งหมด ย้อนกลับไม่ได้
+-- DROP TABLE users;
