@@ -35,7 +35,8 @@ function checkEvent(e) {
 }
 
 /* verifyToken(jwt) ต้อง throw ถ้า token ไม่ถูกต้อง/หมดอายุ และคืน payload (sub, email, name) เมื่อผ่าน */
-export function createApp({ pool, files, verifyToken, distDir }) {
+/* createHandler คืนฟังก์ชัน (req, res) ใช้ได้ทั้งกับ http.createServer และ Vercel Function */
+export function createHandler({ pool, files, verifyToken, distDir }) {
   const rmFiles = (keys) => Promise.all(keys.map((k) => files.delete(k).catch(() => {})));
 
   /* ผู้ใช้จาก Neon Auth: token ผ่านแล้วสร้างแถวใน users ครั้งแรกที่เจอ (auth_id = sub ของ token) */
@@ -160,7 +161,7 @@ export function createApp({ pool, files, verifyToken, distDir }) {
     return true;
   }
 
-  return http.createServer(async (req, res) => {
+  return async (req, res) => {
     const url = new URL(req.url, 'http://x');
     const send = (code, body) => { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); };
     try {
@@ -177,5 +178,7 @@ export function createApp({ pool, files, verifyToken, distDir }) {
       if (code === 500) console.error(e);
       send(code, { error: code === 500 ? 'เซิร์ฟเวอร์ผิดพลาด' : e.message });
     }
-  });
+  };
 }
+
+export const createApp = (deps) => http.createServer(createHandler(deps));
