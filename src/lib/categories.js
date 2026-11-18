@@ -2,7 +2,7 @@
 // ถ้าดึงไม่ได้ ก็ใช้ 5 หมวดเริ่มต้นที่บันเดิลมีอยู่แล้ว
 import { CATS } from '../ds.js';
 
-const PALETTES = ['meadow', 'sky', 'honey', 'blossom', 'lilac'];
+const PALETTES = ['meadow', 'sky', 'honey', 'orange', 'teal', 'blossom', 'lilac'];
 const STYLE_ID = 'sn-cat-palettes';
 
 export function applyCategories(rows) {

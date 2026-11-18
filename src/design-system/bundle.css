@@ -11,6 +11,8 @@
 .sn-cat--meadow  { --c-fill: var(--cat-meadow-fill);  --c-ink: var(--cat-meadow-ink);  --c-solid: var(--cat-meadow-solid); }
 .sn-cat--sky     { --c-fill: var(--cat-sky-fill);     --c-ink: var(--cat-sky-ink);     --c-solid: var(--cat-sky-solid); }
 .sn-cat--honey   { --c-fill: var(--cat-honey-fill);   --c-ink: var(--cat-honey-ink);   --c-solid: var(--cat-honey-solid); }
+.sn-cat--orange  { --c-fill: var(--cat-orange-fill);   --c-ink: var(--cat-orange-ink);   --c-solid: var(--cat-orange-solid); }
+.sn-cat--teal    { --c-fill: var(--cat-teal-fill);     --c-ink: var(--cat-teal-ink);     --c-solid: var(--cat-teal-solid); }
 .sn-cat--blossom { --c-fill: var(--cat-blossom-fill); --c-ink: var(--cat-blossom-ink); --c-solid: var(--cat-blossom-solid); }
 .sn-cat--lilac   { --c-fill: var(--cat-lilac-fill);   --c-ink: var(--cat-lilac-ink);   --c-solid: var(--cat-lilac-solid); }
 

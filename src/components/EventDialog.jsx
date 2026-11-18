@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, CATS, CategoryTag, Icon, PhotoStrip } from '../ds.js';
+import { Button, CATS, CategoryTag, Icon, PhotoStrip, formatDuration } from '../ds.js';
 import { DateField, TimeRange24 } from './TimeFields.jsx';
 import { longDate, toMin, uid } from '../lib/dates.js';
+import PhotoGallery from './PhotoGallery.jsx';
 import { shrink } from '../lib/storage.js';
 import { MAX_REPEAT, REPEAT_KINDS } from '../lib/repeat.js';
 
@@ -13,6 +14,7 @@ export default function EventDialog({ draft, isNew, templates = [], onSaveTempla
   const [tried, setTried] = useState(false);
   const [photoMsg, setPhotoMsg] = useState('');
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [editing, setEditing] = useState(isNew); /* บันทึกเดิมเปิดมาแบบดูอย่างเดียว จนกว่าจะกดแก้ไข */
   const init = useRef(JSON.stringify(draft));
   const box = useRef(null);
   const titleRef = useRef(null);
@@ -20,13 +22,20 @@ export default function EventDialog({ draft, isNew, templates = [], onSaveTempla
 
   useEffect(() => {
     const prev = document.activeElement;
-    if (isNew && titleRef.current) titleRef.current.focus();
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; if (prev && prev.focus) prev.focus(); };
-  }, [isNew]);
+  }, []);
+
+  useEffect(() => {
+    if (editing && titleRef.current) titleRef.current.focus();
+    else if (!editing && box.current) { const b = box.current.querySelector('.dlg__foot .sn-btn--primary'); if (b) b.focus(); }
+  }, [editing]);
 
   /* ปิดหน้าต่าง: ถ้ามีการแก้ค้างอยู่ ถามก่อนทิ้ง */
-  const requestClose = () => { if (dirty) setConfirmDiscard(true); else onClose(); };
+  const requestClose = () => { if (dirty) setConfirmDiscard('close'); else onClose(); };
+  /* ยกเลิกการแก้: บันทึกเดิมกลับไปโหมดดู บันทึกใหม่ปิดหน้าต่าง */
+  const leaveEdit = () => { setD(JSON.parse(init.current)); setTried(false); setPhotoMsg(''); setConfirmDiscard(false); setEditing(false); };
+  const cancelEdit = () => { if (isNew) requestClose(); else if (dirty) setConfirmDiscard('back'); else leaveEdit(); };
 
   const set = (k, v) => setD((o) => ({ ...o, [k]: v }));
   const applyTemplate = (t) => setD((o) => ({ ...o, title: t.title, cat: t.cat, start: t.start, end: t.end, note: t.note || '' }));
@@ -48,7 +57,7 @@ export default function EventDialog({ draft, isNew, templates = [], onSaveTempla
   };
 
   const onKey = (e) => {
-    if (e.key === 'Escape') { e.stopPropagation(); if (confirmDiscard) setConfirmDiscard(false); else requestClose(); return; }
+    if (e.key === 'Escape') { e.stopPropagation(); if (confirmDiscard) setConfirmDiscard(false); else if (editing) cancelEdit(); else onClose(); return; }
     if (e.key === 'Tab' && box.current) {
       const f = Array.prototype.filter.call(box.current.querySelectorAll('button:not([disabled]), input:not([hidden]):not([disabled]), select, textarea, [tabindex="0"]'), (x) => x.offsetParent !== null);
       if (!f.length) return;
@@ -78,12 +87,31 @@ export default function EventDialog({ draft, isNew, templates = [], onSaveTempla
         <form onSubmit={submit} noValidate style={{ display: 'contents' }}>
           <div className="dlg__head">
             <div>
-              <h2 className="dlg__title" id="dlg-title">{isNew ? 'เพิ่มบันทึก' : 'แก้ไขบันทึก'}</h2>
+              <h2 className="dlg__title" id="dlg-title">{isNew ? 'เพิ่มบันทึก' : editing ? 'แก้ไขบันทึก' : 'ดูบันทึก'}</h2>
               <p className="dlg__sub">{d.date ? longDate(d.date) : 'ยังไม่ได้เลือกวันที่'}</p>
             </div>
-            <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="ปิดหน้าต่าง" onClick={requestClose} />
+            <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="ปิดหน้าต่าง" onClick={editing ? requestClose : onClose} />
           </div>
 
+          {!editing ? (
+            <div className="dlg__body dlg__body--view">
+              <div className="dlg__col vw">
+                <h3 className="vw__title">{d.title}</h3>
+                <div className="vw__meta">
+                  <CategoryTag cat={d.cat} />
+                  <span className="vw__time"><Icon name="clock" size={16} />{d.start}–{d.end} น.{formatDuration(d.start, d.end) ? ` (${formatDuration(d.start, d.end)})` : ''}</span>
+                </div>
+                <div className="vw__note">
+                  <span className="field__label">รายละเอียด</span>
+                  {d.note ? <p className="vw__text">{d.note}</p> : <p className="vw__none">ไม่ได้จดรายละเอียดไว้</p>}
+                </div>
+              </div>
+              <div className="dlg__col vw vw--photos">
+                <span className="field__label">รูป{d.photos.length ? <span className="field__opt">{d.photos.length} รูป</span> : null}</span>
+                <PhotoGallery photos={d.photos} />
+              </div>
+            </div>
+          ) : (
           <div className="dlg__body">
             {isNew && templates.length > 0 && (
               <div className="field dlg__wide">
@@ -169,20 +197,28 @@ export default function EventDialog({ draft, isNew, templates = [], onSaveTempla
               {photoMsg && <span className="field__err" role="alert">{photoMsg}</span>}
             </div>
           </div>
+          )}
 
           {confirmDiscard ? (
             <div className="dlg__foot" role="alertdialog" aria-label="ยืนยันการทิ้งการแก้ไข">
               <span className="dlg__ask">ทิ้งการแก้ไขที่ยังไม่ได้บันทึกไหม</span>
               <span className="spacer" />
-              <Button variant="ghost" onClick={onClose}>ทิ้งการแก้ไข</Button>
+              <Button variant="ghost" onClick={isNew || confirmDiscard === 'close' ? onClose : leaveEdit}>ทิ้งการแก้ไข</Button>
               <Button variant="primary" onClick={() => setConfirmDiscard(false)}>กลับไปแก้ต่อ</Button>
+            </div>
+          ) : !editing ? (
+            <div className="dlg__foot">
+              <Button variant="ghost" icon="trash" onClick={onDelete}>ลบบันทึก</Button>
+              <span className="spacer" />
+              <Button variant="ghost" onClick={onClose}>ปิด</Button>
+              <Button variant="primary" icon="pencil" onClick={() => setEditing(true)}>แก้ไข</Button>
             </div>
           ) : (
             <div className="dlg__foot">
               {!isNew && <Button variant="ghost" icon="trash" onClick={onDelete}>ลบบันทึก</Button>}
               <Button variant="ghost" disabled={!d.title.trim()} onClick={() => onSaveTemplate(d)}>เก็บเป็นแม่แบบ</Button>
               <span className="spacer" />
-              <Button variant="ghost" onClick={requestClose}>ยกเลิก</Button>
+              <Button variant="ghost" onClick={cancelEdit}>ยกเลิก</Button>
               <Button type="submit" variant="primary" icon="check">บันทึกงาน</Button>
             </div>
           )}

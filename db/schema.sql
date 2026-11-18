@@ -22,12 +22,12 @@ CREATE UNIQUE INDEX users_email_key ON users (lower(email));
 CREATE TABLE categories (
   id       text     PRIMARY KEY CHECK (length(id) BETWEEN 1 AND 64),
   label    text     NOT NULL CHECK (length(btrim(label)) BETWEEN 1 AND 40),
-  palette  text     NOT NULL DEFAULT 'meadow' CHECK (palette IN ('meadow','sky','honey','blossom','lilac')),  -- ชุดสีที่ธีมมีให้
+  palette  text     NOT NULL DEFAULT 'meadow' CHECK (palette IN ('meadow','sky','honey','orange','teal','blossom','lilac')),  -- ชุดสีที่ธีมมีให้
   position smallint NOT NULL DEFAULT 0
 );
 INSERT INTO categories (id, label, palette, position) VALUES
   ('meadow','งานหลัก','meadow',0), ('sky','ประชุม','sky',1), ('honey','ลงพื้นที่','honey',2),
-  ('blossom','งานสร้างสรรค์','blossom',3), ('lilac','เรียนรู้','lilac',4);
+  ('blossom','งานสร้างสรรค์','blossom',3), ('lilac','เรียนรู้','lilac',4), ('repair','งานซ่อม','orange',6);
 
 CREATE TABLE entries (
   id          text        PRIMARY KEY CHECK (length(id) BETWEEN 1 AND 64),  -- uuid ที่ไคลเอนต์สร้าง (ใช้ upsert ตอนซิงก์)

@@ -24,7 +24,8 @@
     chart: ['M5 20V10M12 20V4M19 20v-7'],
     note: ['M6 4h9l3 3v13H6z', 'M9 12h6M9 16h4'],
     leaf: ['M5 19c0-8 5-14 15-14 0 10-6 15-14 15', 'M5 19l8-8'],
-    trash: ['M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13']
+    trash: ['M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13'],
+    pencil: ['M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19l-4 1z', 'M14.5 6.5l3 3']
   };
 
   function Icon(p) {
