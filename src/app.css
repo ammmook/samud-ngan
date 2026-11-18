@@ -229,3 +229,8 @@ h1, h2, h3, p { margin: 0; }
   .leaves { display: none; }
   .cal, .dash, .scrim, .dlg, .catpick, .tg__col, .login__card, .acct__menu { animation: none !important; transition: none !important; }
 }
+
+/* ปุ่มลบถาวร: ใช้สีเตือนที่มีอยู่แล้วของระบบ */
+.btn-danger { background: var(--now-line) !important; color: var(--on-moss) !important; }
+.btn-danger-text { color: var(--now-line) !important; }
+.dlg--confirm { width: min(460px, 100%); }

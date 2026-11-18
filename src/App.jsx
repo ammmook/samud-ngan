@@ -7,20 +7,24 @@ import Login from './pages/Login.jsx';
 import SummaryPage from './pages/SummaryPage.jsx';
 import { ds } from './lib/dates.js';
 import { useToday } from './lib/hooks.js';
-import { demoData, loadEvents, pref, saveEvents, setPref } from './lib/storage.js';
-import { createSyncer, loadProfile, loadRemote, putMe, setTokenProvider } from './lib/remote.js';
+import { clearUserData, demoData, loadEvents, pref, saveEvents, setPref } from './lib/storage.js';
+import { createSyncer, deleteAccountData, loadProfile, loadRemote, mergePhotoUrls, putMe, setTokenProvider } from './lib/remote.js';
+import DeleteAccountDialog from './components/DeleteAccountDialog.jsx';
 import { currentUser, forgetToken, getToken, signInWithGoogle, signOutAuth } from './lib/auth.js';
 import { saveTemplates } from './lib/templates.js';
 import { loadCategories } from './lib/categories.js';
 
 const RETRY_MS = 5000;
+// ลิงก์รูปจากเซิร์ฟเวอร์อายุ 1 ชั่วโมง ขอใหม่ก่อนหมด (เช็กทุก 5 นาทีและตอนกลับมาที่แท็บ เพราะ timer หยุดตอนเครื่องหลับ)
+const URL_REFRESH_MS = 40 * 60 * 1000, URL_CHECK_MS = 5 * 60 * 1000;
 
-function Workspace({ user, onSignOut }) {
+function Workspace({ user, onSignOut, onDeleteAccount }) {
   const today = useToday();
   const [page, setPage] = useState(() => (pref('sn-page', 'calendar') === 'summary' ? 'summary' : 'calendar'));
   const [events, setEvents] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loadTick, setLoadTick] = useState(0); // เพิ่มค่าเพื่อให้ effect โหลดทำงานซ้ำ
@@ -66,6 +70,18 @@ function Workspace({ user, onSignOut }) {
     return () => { live = false; clearTimeout(retry); };
   }, [events, loaded, storeKey, user.guest, saveTick]);
   useEffect(() => { setPref('sn-page', page); }, [page]);
+  useEffect(() => {
+    if (user.guest || !loaded) return undefined;
+    let last = Date.now(), busy = false;
+    const check = () => {
+      if (busy || document.hidden || Date.now() - last < URL_REFRESH_MS) return;
+      busy = true;
+      loadRemote().then((fresh) => { last = Date.now(); setEvents((list) => mergePhotoUrls(list, fresh)); }).catch(() => {}).finally(() => { busy = false; });
+    };
+    const t = setInterval(check, URL_CHECK_MS);
+    document.addEventListener('visibilitychange', check);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', check); };
+  }, [user.guest, loaded]);
 
   const notify = (msg, undo) => {
     clearTimeout(toastTimer.current);
@@ -77,7 +93,7 @@ function Workspace({ user, onSignOut }) {
   return (
     <div className="app">
       <Leaves />
-      <Sidebar page={page} onPage={setPage} user={user} onSignOut={onSignOut} />
+      <Sidebar page={page} onPage={setPage} user={user} onSignOut={onSignOut} onDeleteAccount={() => setConfirmDelete(true)} />
       <main className="main">
         {(saveFailed || loadFailed) && (
           <div className="banner" role="alert">
@@ -89,6 +105,7 @@ function Workspace({ user, onSignOut }) {
           ? <CalendarPage cursor={cursor} setCursor={setCursor} events={events} setEvents={setEvents} today={today} notify={notify} loaded={loaded} goal={goal} onGoal={setGoal} storeKey={storeKey} />
           : <SummaryPage events={events} today={today} notify={notify} who={user.guest ? '' : user.name} />}
       </main>
+      {confirmDelete && <DeleteAccountDialog onClose={() => setConfirmDelete(false)} onConfirm={onDeleteAccount} />}
       {toast && (
         <div className="toastwrap">
           <Toast key={toast.id} action={toast.undo ? 'เลิกทำ' : undefined} onAction={() => { toast.undo(); setToast(null); }}>{toast.msg}</Toast>
@@ -127,10 +144,14 @@ export default function App() {
 
   const signInGuest = () => { setPref('sn-guest', '1'); setUser({ guest: true }); };
   const signOut = () => {
+    const sub = user && user.sub;
     setPref('sn-guest', ''); setPref('sn-user', 'null'); setUser(null);
     forgetToken(); signOutAuth();
+    clearUserData(sub); // ไม่ทิ้งแม่แบบและสำเนาบันทึกของผู้ใช้ไว้ให้คนถัดไปที่ใช้เครื่องเดียวกัน
   };
+  // ลบที่เซิร์ฟเวอร์ให้สำเร็จก่อน (ถ้าล้มจะโยน error ให้หน้าต่างยืนยันแสดง) แล้วค่อยออกจากระบบ
+  const deleteAccount = async () => { await deleteAccountData(); signOut(); };
   if (user === undefined) return null;
   if (!user) return <Login onGuest={signInGuest} onGoogle={signInWithGoogle} notice={authError} />;
-  return <Workspace key={user.guest ? 'guest' : user.sub} user={user} onSignOut={signOut} />;
+  return <Workspace key={user.guest ? 'guest' : user.sub} user={user} onSignOut={signOut} onDeleteAccount={deleteAccount} />;
 }

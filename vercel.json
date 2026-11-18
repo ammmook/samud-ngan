@@ -2,5 +2,37 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api" }]
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "content-security-policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com https://*.storage.c-4.ap-southeast-1.aws.neon.tech; connect-src 'self' data: blob: https://*.neonauth.c-4.ap-southeast-1.aws.neon.tech; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+        },
+        {
+          "key": "x-content-type-options",
+          "value": "nosniff"
+        },
+        {
+          "key": "referrer-policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "x-frame-options",
+          "value": "DENY"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains"
+        }
+      ]
+    }
+  ]
 }

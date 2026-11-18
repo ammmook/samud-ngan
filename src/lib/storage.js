@@ -18,6 +18,20 @@ const idbSet = (k, v) => openDb().then((db) => new Promise((res, rej) => {
   t.oncomplete = () => res(); t.onerror = () => rej(t.error);
 }));
 
+const idbDel = (k) => openDb().then((db) => new Promise((res, rej) => {
+  const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').delete(k);
+  t.oncomplete = () => res(); t.onerror = () => rej(t.error);
+}));
+
+/* ล้างข้อมูลของผู้ใช้ที่ลงชื่อเข้าใช้ออกจากเครื่องนี้ (แม่แบบมีรายละเอียดงาน, สำเนาบันทึกเก่าใน IndexedDB)
+   ไม่แตะข้อมูลโหมดผู้เยี่ยมชมและค่าที่ไม่ใช่ข้อมูลส่วนตัว เช่น มุมมองที่เลือก */
+export function clearUserData(sub) {
+  if (!sub) return Promise.resolve();
+  const key = 'events:' + sub;
+  try { localStorage.removeItem('sn-tpl:' + key); localStorage.removeItem('sn-' + key); } catch (e) { /* ไม่เป็นไร */ }
+  return idbDel(key).catch(() => {});
+}
+
 export function loadEvents(key = 'events') {
   return idbGet(key).then((v) => (Array.isArray(v) ? v : [])).catch(() => {
     try { return JSON.parse(localStorage.getItem('sn-' + key) || '[]'); } catch (e) { return []; }

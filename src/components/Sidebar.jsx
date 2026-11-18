@@ -12,7 +12,7 @@ function Avatar({ user, name }) {
 }
 
 /* เมนูบัญชีบนแถบบนสุด: กดรูปแล้วเห็นชื่อกับปุ่มออกจากระบบ ไม่ออกทันที */
-function AccountMenu({ user, name, outLabel, onSignOut }) {
+function AccountMenu({ user, name, outLabel, onSignOut, onDelete }) {
   const [open, setOpen] = useState(false);
   const box = useRef(null);
 
@@ -35,13 +35,15 @@ function AccountMenu({ user, name, outLabel, onSignOut }) {
           <p className="acct__name">{name}</p>
           {user.email && <p className="acct__mail">{user.email}</p>}
           <Button variant="soft" size="sm" onClick={onSignOut}>{outLabel}</Button>
+          {onDelete && <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onDelete(); }}>ลบบัญชีและข้อมูล</Button>}
         </div>
       )}
     </div>
   );
 }
 
-export default function Sidebar({ page, onPage, user, onSignOut }) {
+export default function Sidebar({ page, onPage, user, onSignOut, onDeleteAccount }) {
+  const onDelete = user.guest ? undefined : onDeleteAccount;
   const name = user.guest ? 'ผู้เยี่ยมชม' : user.name;
   const outLabel = user.guest ? 'เข้าสู่ระบบ' : 'ออกจากระบบ';
   return (
@@ -65,6 +67,7 @@ export default function Sidebar({ page, onPage, user, onSignOut }) {
             <span className="who__name">{name}</span>
           </div>
           <Button variant="ghost" size="sm" onClick={onSignOut}>{outLabel}</Button>
+          {onDelete && <Button variant="ghost" size="sm" className="btn-danger-text" onClick={onDelete}>ลบบัญชีและข้อมูล</Button>}
         </div>
       </aside>
 
@@ -78,7 +81,7 @@ export default function Sidebar({ page, onPage, user, onSignOut }) {
             </button>
           ))}
         </nav>
-        <AccountMenu user={user} name={name} outLabel={outLabel} onSignOut={onSignOut} />
+        <AccountMenu user={user} name={name} outLabel={outLabel} onSignOut={onSignOut} onDelete={onDelete} />
       </header>
     </>
   );

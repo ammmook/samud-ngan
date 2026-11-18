@@ -15,6 +15,22 @@ const jsonOpt = (method, body) => ({ method, headers: { 'content-type': 'applica
 export const loadProfile = () => api('/auth/me');
 export const putMe = (patch) => api('/me', jsonOpt('PUT', patch)).catch(() => {});
 export const loadRemote = () => api('/events');
+/* ลบข้อมูลทั้งหมดของบัญชีนี้ที่เซิร์ฟเวอร์ (ต่างจาก putMe: ไม่กลืน error ให้ผู้ใช้รู้ว่าลบไม่สำเร็จ) */
+export const deleteAccountData = () => api('/me', { method: 'DELETE' });
+
+/* ลิงก์รูปจากเซิร์ฟเวอร์หมดอายุใน 1 ชั่วโมง: นำลิงก์ใหม่ใส่รูปเดิมตาม id โดยไม่แตะส่วนอื่นของบันทึก
+   (รูปที่ยังเป็น data: ในเครื่องไม่อยู่ในรายการใหม่ จึงไม่ถูกแตะ) คืนรายการเดิมถ้าไม่มีอะไรเปลี่ยน */
+export function mergePhotoUrls(list, fresh) {
+  const src = new Map();
+  for (const e of fresh) for (const p of e.photos || []) src.set(p.id, p.src);
+  let changed = false;
+  const out = list.map((e) => {
+    if (!(e.photos || []).some((p) => src.has(p.id) && src.get(p.id) !== p.src)) return e;
+    changed = true;
+    return { ...e, photos: e.photos.map((p) => (src.has(p.id) ? { ...p, src: src.get(p.id) } : p)) };
+  });
+  return changed ? out : list;
+}
 
 const BATCH = 100;
 export const UNDO_GRACE_MS = 8000; // มากกว่าเวลาที่ปุ่ม "เลิกทำ" แสดงอยู่ (7 วินาที)

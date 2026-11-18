@@ -157,3 +157,90 @@ describe('PUT /api/photos/:id', () => {
     expect(f.files.upload).not.toHaveBeenCalled();
   });
 });
+
+describe('PUT /api/photos/:id content checks and quota', () => {
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+  const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
+  const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.from([0, 0, 0, 0]), Buffer.from('WEBP')]);
+  const put = (body, type = 'image/png') => fetch(base + '/api/photos/p1?entry=e1', { method: 'PUT', headers: { authorization: 'Bearer ' + GOOD_TOKEN, 'content-type': type }, body });
+  const MB = 1024 * 1024;
+  // เจ้าของบันทึก, ยังไม่มีรูปนี้, มีรูปในบันทึก 0 รูป, ใช้พื้นที่ usedBytes
+  const owning = (usedBytes = 0) => f.pool.query.mockImplementation(async (sql) => {
+    if (/FROM users WHERE auth_id/.test(sql)) return { rowCount: 1, rows: [{ id: USER_ID }] };
+    if (/SELECT 1 FROM entries/.test(sql)) return { rowCount: 1, rows: [{}] };
+    if (/SELECT 1 FROM entry_photos/.test(sql)) return { rowCount: 0, rows: [] };
+    if (/count\(\*\)/.test(sql)) return { rowCount: 1, rows: [{ n: 0 }] };
+    if (/sum\(p\.size_bytes\)/.test(sql)) return { rowCount: 1, rows: [{ n: String(usedBytes) }] };
+    return { rowCount: 1, rows: [] };
+  });
+
+  it.each([['image/png', PNG], ['image/jpeg', JPG], ['image/webp', WEBP]])('accepts a real %s', async (type, bytes) => {
+    owning();
+    expect((await put(bytes, type)).status).toBe(201);
+    expect(f.files.upload).toHaveBeenCalledOnce();
+  });
+  it('rejects html sent with an image content type', async () => {
+    owning();
+    const r = await put(Buffer.from('<script>alert(1)</script>'), 'image/png');
+    expect(r.status).toBe(415);
+    expect(f.files.upload).not.toHaveBeenCalled();
+  });
+  it('rejects a jpeg declared as png', async () => {
+    owning();
+    expect((await put(JPG, 'image/png')).status).toBe(415);
+  });
+  it('rejects an upload that would exceed the per-user storage quota', async () => {
+    owning(200 * MB - 2);
+    expect((await put(PNG)).status).toBe(413);
+    expect(f.files.upload).not.toHaveBeenCalled();
+  });
+  it('accepts an upload that fits exactly in the remaining quota', async () => {
+    owning(200 * MB - PNG.length);
+    expect((await put(PNG)).status).toBe(201);
+  });
+  it('rejects a body larger than the single photo limit', async () => {
+    owning();
+    expect((await put(Buffer.alloc(4 * MB + 1, 1))).status).toBe(413);
+  });
+});
+
+describe('DELETE /api/me', () => {
+  it('requires authentication and touches nothing without it', async () => {
+    expect((await call('/api/me', { method: 'DELETE', token: null })).status).toBe(HTTP.UNAUTHORIZED);
+    expect(f.pool.connect).not.toHaveBeenCalled();
+  });
+  it('deletes the user row in a transaction and removes bucket files only after commit', async () => {
+    const order = [];
+    f.client.query.mockImplementation(async (sql) => {
+      order.push(sql.split(/\s/)[0] + (/DELETE FROM users/.test(sql) ? ':users' : ''));
+      if (/storage_key FROM entry_photos/.test(sql)) return { rowCount: 2, rows: [{ storage_key: 'u/1/a.png' }, { storage_key: 'u/1/b.jpg' }] };
+      return { rowCount: 1, rows: [] };
+    });
+    f.files.delete.mockImplementation(async () => { order.push('FILE_DELETE'); });
+    const r = await call('/api/me', { method: 'DELETE' });
+    expect(r.status).toBe(HTTP.OK);
+    expect(await r.json()).toMatchObject({ ok: true, deletedPhotos: 2 });
+    expect(order.indexOf('DELETE:users')).toBeLessThan(order.indexOf('COMMIT'));
+    expect(order.indexOf('COMMIT')).toBeLessThan(order.indexOf('FILE_DELETE'));
+    expect(f.files.delete).toHaveBeenCalledWith('u/1/a.png');
+    expect(f.files.delete).toHaveBeenCalledWith('u/1/b.jpg');
+  });
+  it('rolls back and deletes no files when the database fails', async () => {
+    f.client.query.mockImplementation(async (sql) => { if (/DELETE FROM users/.test(sql)) throw new Error('boom'); return { rowCount: 0, rows: [] }; });
+    const r = await call('/api/me', { method: 'DELETE' });
+    expect(r.status).toBe(500);
+    expect(f.client.query).toHaveBeenCalledWith('ROLLBACK');
+    expect(f.files.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe('photo url lifetime', () => {
+  it('signs photo links for one hour', async () => {
+    f.pool.query.mockImplementation(async (sql) => {
+      if (/FROM users WHERE auth_id/.test(sql)) return { rowCount: 1, rows: [{ id: USER_ID }] };
+      return { rowCount: 1, rows: [{ id: 'e1', photos: [{ id: 'p1', key: 'u/1/a.png' }] }] };
+    });
+    await call('/api/events');
+    expect(f.files.url).toHaveBeenCalledWith('u/1/a.png', { expiresIn: 3600 });
+  });
+});

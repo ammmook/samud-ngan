@@ -3,10 +3,22 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { SECURITY_HEADERS, clientIp, createRateLimiter } from './security.js';
 
 // ลิงก์รูปต้องอยู่ได้นานกว่าช่วงที่เปิดแอปค้างไว้ ไม่งั้นรูปในหน้าเดิมจะพังหลังครบเวลา
-const PHOTO_URL_TTL_S = 12 * 3600;
-const MAX_PHOTO = 5 * 1024 * 1024, MAX_JSON = 2 * 1024 * 1024, MAX_PHOTOS_PER_ENTRY = 20;
+// ลิงก์รูปเป็น bearer URL: ใครได้ลิงก์ก็ดูได้จนหมดอายุ จึงให้สั้น แล้วให้หน้าเว็บขอลิงก์ใหม่เป็นระยะ (ดู App.jsx)
+const PHOTO_URL_TTL_S = 3600;
+// Vercel Function รับ body ได้ไม่เกิน 4.5MB จึงตั้งเพดานรูปต่ำกว่านั้น (หน้าเว็บย่อรูปเหลือ ~1MB อยู่แล้ว)
+const MAX_PHOTO = 4 * 1024 * 1024, MAX_JSON = 2 * 1024 * 1024, MAX_PHOTOS_PER_ENTRY = 20;
+const MAX_USER_PHOTO_BYTES = 200 * 1024 * 1024; // โควตารูปรวมต่อผู้ใช้
+const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+/* ดูชนิดไฟล์จากไบต์แรก ไม่เชื่อ Content-Type ที่ client ส่งมา */
+const sniffImage = (b) => {
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b.length >= 8 && b.subarray(0, 8).equals(PNG_SIG)) return 'image/png';
+  if (b.length >= 12 && b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') return 'image/webp';
+  return null;
+};
 // เวลาจบรับ 24:00 ได้ เพราะการลากบันทึกไปท้ายวันในตารางเวลาให้ค่านี้ (Postgres ชนิด time รับ 24:00)
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/, END_TIME = /^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, DATE = /^\d{4}-\d{2}-\d{2}$/;
 const PHOTO_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -36,7 +48,9 @@ function checkEvent(e) {
 
 /* verifyToken(jwt) ต้อง throw ถ้า token ไม่ถูกต้อง/หมดอายุ และคืน payload (sub, email, name) เมื่อผ่าน */
 /* createHandler คืนฟังก์ชัน (req, res) ใช้ได้ทั้งกับ http.createServer และ Vercel Function */
-export function createHandler({ pool, files, verifyToken, distDir }) {
+export function createHandler({ pool, files, verifyToken, distDir, rateLimit = {}, trustProxy = !!process.env.VERCEL }) {
+  const limiter = createRateLimiter(rateLimit);
+  const root = distDir && path.resolve(distDir);
   const rmFiles = (keys) => Promise.all(keys.map((k) => files.delete(k).catch(() => {})));
 
   /* ผู้ใช้จาก Neon Auth: token ผ่านแล้วสร้างแถวใน users ครั้งแรกที่เจอ (auth_id = sub ของ token) */
@@ -78,10 +92,25 @@ export function createHandler({ pool, files, verifyToken, distDir }) {
       }
       return [200, { ok: true }];
     }],
+    // ลบข้อมูลของผู้ใช้ทั้งหมด (บันทึก รูป แม่แบบ แถวผู้ใช้) ไม่ลบตัวตนใน Neon Auth ซึ่งอยู่นอกฐานข้อมูลของแอป
+    ['DELETE', /^\/api\/me$/, async (req) => {
+      const uid = await requireUser(req);
+      let keys;
+      const c = await pool.connect();
+      try {
+        await c.query('BEGIN');
+        keys = (await c.query('SELECT p.storage_key FROM entry_photos p JOIN entries e ON e.id=p.entry_id WHERE e.user_id=$1', [uid])).rows.map((r) => r.storage_key);
+        await c.query('DELETE FROM users WHERE id=$1', [uid]); // ON DELETE CASCADE ลบ entries และ entry_photos
+        await c.query('COMMIT');
+      } catch (err) { await c.query('ROLLBACK'); throw err; } finally { c.release(); }
+      await rmFiles(keys); // ลบไฟล์หลัง commit เหมือน /api/sync
+      return [200, { ok: true, deletedPhotos: keys.length }];
+    }],
     // หมวดกลาง อ่านอย่างเดียว (ไม่ผูกผู้ใช้ ไม่มีข้อมูลส่วนตัว) เพิ่มหมวดด้วยการ INSERT ลงตาราง categories
+    // ให้ CDN/เบราว์เซอร์แคชสั้นๆ เพราะเรียกได้โดยไม่ต้องลงชื่อเข้าใช้ ลดภาระฐานข้อมูล
     ['GET', /^\/api\/categories$/, async () => {
       const { rows } = await pool.query('SELECT id, label, palette FROM categories ORDER BY position, label');
-      return [200, rows];
+      return [200, rows, { 'cache-control': 'public, max-age=60, s-maxage=300' }];
     }],
     ['GET', /^\/api\/events$/, async (req) => {
       const uid = await requireUser(req);
@@ -137,8 +166,11 @@ export function createHandler({ pool, files, verifyToken, distDir }) {
       if (have.rowCount) return [200, { ok: true, existed: true }];
       const cnt = await pool.query('SELECT count(*)::int n FROM entry_photos WHERE entry_id=$1', [entryId]);
       if (cnt.rows[0].n >= MAX_PHOTOS_PER_ENTRY) throw bad('รูปมากเกินไป');
+      const used = await pool.query('SELECT COALESCE(sum(p.size_bytes),0)::bigint AS n FROM entry_photos p JOIN entries e ON e.id = p.entry_id WHERE e.user_id=$1', [uid]);
       const body = await readBody(req, MAX_PHOTO);
       if (!body.length) throw bad('ไฟล์ว่าง');
+      if (Number(used.rows[0]?.n ?? 0) + body.length > MAX_USER_PHOTO_BYTES) throw new HttpError(413, 'พื้นที่เก็บรูปเต็ม ลบรูปเก่าที่ไม่ใช้ก่อน');
+      if (sniffImage(body) !== type) return [415, { error: 'ไฟล์ไม่ใช่รูปตามชนิดที่ระบุ' }];
       const key = `u/${uid}/${randomUUID()}.${PHOTO_EXT[type]}`;
       await files.upload(key, body, { contentType: type });
       try {
@@ -151,32 +183,39 @@ export function createHandler({ pool, files, verifyToken, distDir }) {
   ];
 
   function serveStatic(req, res, url) {
-    if (!distDir || !['GET', 'HEAD'].includes(req.method)) return false;
-    let f = path.join(distDir, path.normalize(decodeURIComponent(url.pathname)));
-    if (!f.startsWith(distDir)) return false;
-    if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) f = path.join(distDir, 'index.html');
+    if (!root || !['GET', 'HEAD'].includes(req.method)) return false;
+    let f;
+    try { f = path.resolve(root, '.' + decodeURIComponent(url.pathname)); } catch { return false; } // % ที่ถอดรหัสไม่ได้
+    // ต้องอยู่ใต้ root จริงๆ (เติม path.sep กันโฟลเดอร์พี่น้องที่ชื่อขึ้นต้นเหมือนกัน เช่น dist-old)
+    if (f !== root && !f.startsWith(root + path.sep)) return false;
+    if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) f = path.join(root, 'index.html');
     if (!fs.existsSync(f)) return false;
-    res.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream' });
-    fs.createReadStream(f).pipe(res);
+    res.writeHead(200, { ...SECURITY_HEADERS, 'content-type': MIME[path.extname(f)] || 'application/octet-stream' });
+    if (req.method === 'HEAD') res.end(); else fs.createReadStream(f).pipe(res);
     return true;
   }
 
   return async (req, res) => {
     const url = new URL(req.url, 'http://x');
-    const send = (code, body) => { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); };
+    const send = (code, body, extra) => { res.writeHead(code, { ...SECURITY_HEADERS, 'content-type': 'application/json', 'cache-control': 'no-store', ...extra }); res.end(JSON.stringify(body)); };
     try {
       if (!url.pathname.startsWith('/api/')) { if (serveStatic(req, res, url)) return; return send(404, { error: 'not found' }); }
-      if (url.pathname === '/api/health') { const { rows } = await pool.query('SELECT now() AS now'); return send(200, { ok: true, db: rows[0].now }); }
+      // /api/health ไม่แตะฐานข้อมูลและไม่คืนข้อมูลภายใน เพื่อไม่ให้คนนอกใช้ยิงฐานข้อมูลได้
+      if (url.pathname === '/api/health') return send(200, { ok: true });
+      const wait = limiter(clientIp(req, trustProxy));
+      if (wait) return send(429, { error: 'คำขอถี่เกินไป ลองใหม่ภายหลัง' }, { 'retry-after': String(wait) });
       for (const [method, re, fn] of routes) {
         const m = req.method === method && url.pathname.match(re);
-        if (m) { const [code, body] = await fn(req, m, url, res); return send(code, body); }
+        if (m) { const [code, body, extra] = await fn(req, m, url, res); return send(code, body, extra); }
       }
       send(404, { error: 'not found' });
     } catch (e) {
-      const pg = ['23514', '23502', '22007', '22P02', '22001', '23503'].includes(e.code);
-      const code = e instanceof HttpError ? e.code : pg ? 400 : 500;
+      // ข้อความของ Postgres มีชื่อตาราง/constraint จึงไม่ส่งออกไปให้ client
+      const invalid = ['23514', '23502', '22007', '22P02', '22001', '23503'].includes(e.code);
+      const code = e instanceof HttpError ? e.code : e.code === '23505' ? 409 : invalid ? 400 : 500;
       if (code === 500) console.error(e);
-      send(code, { error: code === 500 ? 'เซิร์ฟเวอร์ผิดพลาด' : e.message });
+      const msg = e instanceof HttpError ? e.message : code === 409 ? 'ข้อมูลซ้ำกับที่มีอยู่' : invalid ? 'ข้อมูลไม่ถูกต้อง' : 'เซิร์ฟเวอร์ผิดพลาด';
+      send(code, { error: msg });
     }
   };
 }

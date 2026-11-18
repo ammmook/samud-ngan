@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSyncer, setTokenProvider, UNDO_GRACE_MS } from './remote.js';
+import { createSyncer, mergePhotoUrls, setTokenProvider, UNDO_GRACE_MS } from './remote.js';
 
 const DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 const SERVER_URL = 'https://files.test/u/1/x.png';
@@ -114,5 +114,23 @@ describe('createSyncer', () => {
     const s = createSyncer(); s.init([]);
     await s.push(many);
     expect(syncCalls().every((c) => c.body.upserts.length <= MAX_PER_SYNC)).toBe(true);
+  });
+});
+
+describe('mergePhotoUrls', () => {
+  const photo = (id, src) => ({ id, src });
+  it('swaps in fresh links for photos with the same id and leaves the rest of the entry alone', () => {
+    const list = [ev({ id: 'a', title: 'แก้ค้างอยู่', photos: [photo('p1', 'https://old/1'), photo('p2', DATA_URL)] })];
+    const out = mergePhotoUrls(list, [ev({ id: 'a', title: 'ของเซิร์ฟเวอร์', photos: [photo('p1', 'https://new/1')] })]);
+    expect(out[0].photos).toEqual([photo('p1', 'https://new/1'), photo('p2', DATA_URL)]);
+    expect(out[0].title).toBe('แก้ค้างอยู่');
+  });
+  it('returns the same array when no link changed so react does not re-render', () => {
+    const list = [ev({ photos: [photo('p1', 'https://same/1')] })];
+    expect(mergePhotoUrls(list, [ev({ photos: [photo('p1', 'https://same/1')] })])).toBe(list);
+  });
+  it('ignores server photos the user has already removed locally', () => {
+    const list = [ev({ photos: [] })];
+    expect(mergePhotoUrls(list, [ev({ photos: [photo('gone', 'https://new/x')] })])).toBe(list);
   });
 });
