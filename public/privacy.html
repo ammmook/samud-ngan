@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>นโยบายความเป็นส่วนตัว · สมุดงาน</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    :root { color-scheme: light dark; --bg: #fbfaf5; --ink: #1f2a22; --muted: #55635a; --line: #d9ddd0; --accent: #2f6b3f; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #151b17; --ink: #e8efe6; --muted: #a9b9a8; --line: #34463a; --accent: #8ccb8f; } }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.75 "IBM Plex Sans Thai Looped", system-ui, sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 26px; margin: 0 0 4px; }
+    h2 { font-size: 18px; margin: 32px 0 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+    p, li { margin: 6px 0; }
+    ul { padding-left: 22px; }
+    a { color: var(--accent); }
+    .meta { color: var(--muted); font-size: 14px; }
+    .en { margin-top: 40px; color: var(--muted); font-size: 15px; }
+  </style>
+</head>
+<body>
+<main>
+  <p><a href="/">← กลับไปสมุดงาน</a></p>
+  <h1>นโยบายความเป็นส่วนตัว</h1>
+  <p class="meta">สมุดงาน · ปรับปรุงล่าสุด 18 พฤศจิกายน 2569 (2026-11-18)</p>
+
+  <p>สมุดงานเป็นแอปจดบันทึกงานรายวัน หน้านี้อธิบายว่าเราเก็บข้อมูลอะไร ใช้ทำอะไร เก็บที่ไหน และคุณลบได้อย่างไร</p>
+
+  <h2>ข้อมูลที่เราเก็บ</h2>
+  <p><b>เมื่อคุณลงชื่อเข้าใช้ด้วย Google</b></p>
+  <ul>
+    <li>ชื่อและอีเมลจากบัญชี Google ของคุณ (เพื่อแยกบันทึกของแต่ละคน)</li>
+    <li>รูปโปรไฟล์จาก Google (แสดงบนหน้าจอเท่านั้น ไม่ได้บันทึกลงฐานข้อมูลของเรา)</li>
+    <li>บันทึกงานที่คุณสร้าง: วันที่ เวลา หัวข้อ หมวด รายละเอียด และรูปที่คุณแนบ</li>
+    <li>แม่แบบบันทึกและเป้าหมายชั่วโมงต่อวันที่คุณตั้ง</li>
+  </ul>
+  <p><b>เมื่อใช้แบบผู้เยี่ยมชม</b> บันทึกเก็บในเบราว์เซอร์ของคุณเท่านั้น (IndexedDB และ localStorage) ไม่ถูกส่งขึ้นเซิร์ฟเวอร์</p>
+  <p>เราไม่เก็บข้อมูลการชำระเงิน ตำแหน่งที่ตั้ง รายชื่อติดต่อ หรือข้อมูลอื่นจากบัญชี Google ของคุณนอกจากที่ระบุข้างต้น</p>
+
+  <h2>เราใช้ข้อมูลเพื่ออะไร</h2>
+  <ul>
+    <li>แสดงและซิงก์บันทึกของคุณระหว่างอุปกรณ์</li>
+    <li>แยกข้อมูลของแต่ละบัญชี ไม่ให้ปะปนกัน</li>
+    <li>สร้างรายงานและสรุปการทำงานให้คุณเอง</li>
+  </ul>
+  <p>เราไม่ขายข้อมูลของคุณ ไม่ใช้เพื่อโฆษณา และไม่แบ่งปันให้บุคคลอื่นดู</p>
+
+  <h2>เก็บไว้ที่ไหน และใครช่วยประมวลผล</h2>
+  <ul>
+    <li><b>Neon</b>: ฐานข้อมูลบันทึก, ระบบลงชื่อเข้าใช้ และที่เก็บรูป (เซิร์ฟเวอร์ภูมิภาคสิงคโปร์) รูปเก็บแบบส่วนตัว เปิดดูได้ผ่านลิงก์ชั่วคราวอายุ 1 ชั่วโมงเท่านั้น</li>
+    <li><b>Vercel</b>: โฮสต์เว็บและ API</li>
+    <li><b>Google</b>: ยืนยันตัวตนเมื่อคุณเลือกลงชื่อเข้าใช้ด้วย Google และให้บริการฟอนต์ของหน้าเว็บ (เบราว์เซอร์ของคุณจะติดต่อ Google Fonts โดยตรง)</li>
+  </ul>
+  <p>การลงชื่อเข้าใช้ใช้คุกกี้เซสชันของระบบยืนยันตัวตนเพื่อให้คุณอยู่ในระบบ เราไม่ใช้คุกกี้เพื่อติดตามหรือโฆษณา</p>
+
+  <h2>ระยะเวลาเก็บและการลบข้อมูล</h2>
+  <ul>
+    <li>เราเก็บข้อมูลไว้จนกว่าคุณจะลบ</li>
+    <li><b>ลบด้วยตัวเอง:</b> เมนูบัญชี → “ลบบัญชีและข้อมูล” จะลบบันทึก รูป แม่แบบ และเป้าหมายของคุณจากเซิร์ฟเวอร์ถาวร กู้คืนไม่ได้</li>
+    <li>การลบดังกล่าวไม่ได้ลบระเบียนตัวตน (ชื่อและอีเมล) ในระบบยืนยันตัวตนของ Neon หากต้องการให้ลบส่วนนี้ด้วย ให้ติดต่อเราตามช่องทางด้านล่าง</li>
+    <li>ข้อมูลแบบผู้เยี่ยมชมลบได้โดยล้างข้อมูลเว็บไซต์ในเบราว์เซอร์</li>
+  </ul>
+
+  <h2>สิทธิของคุณ</h2>
+  <p>ตามกฎหมายคุ้มครองข้อมูลส่วนบุคคล (PDPA) คุณขอเข้าถึง แก้ไข ลบ หรือคัดลอกข้อมูลของคุณได้ คุณดาวน์โหลดบันทึกเป็นไฟล์ CSV ได้เองจากหน้ารายงานในแอป</p>
+
+  <h2>ติดต่อเรา</h2>
+  <p>ผู้ดูแล: <b>Ruthaichanok Kasun</b><br>อีเมล: <b>ruthaichanok.37355@gmail.com</b></p>
+
+  <h2>การเปลี่ยนแปลงนโยบาย</h2>
+  <p>หากมีการเปลี่ยนแปลงสำคัญ เราจะปรับวันที่ด้านบนของหน้านี้</p>
+
+  <section class="en" lang="en">
+    <h2>Privacy policy (summary in English)</h2>
+    <p>Samut Ngan is a daily work-journal app. If you sign in with Google we store your name and email, the entries, photos, templates and daily goal you create. Your Google profile picture is displayed but not stored. In guest mode, everything stays in your browser and is never sent to our servers.</p>
+    <p>Data is stored with Neon (database, authentication and private photo storage, Singapore region) and served through Vercel. Photos are private and opened only via links that expire after one hour. We do not sell your data or use it for advertising.</p>
+    <p>You can delete your entries, photos, templates and goal at any time from the account menu ("ลบบัญชีและข้อมูล"). This does not remove your identity record (name and email) held by the authentication provider; contact us to have that removed. You can also request access, correction or deletion of your data by contacting us.</p>
+  </section>
+</main>
+</body>
+</html>
