@@ -80,6 +80,18 @@ export default function ReportDialog({ events, today, who, onClose, notify }) {
     notify('ดาวน์โหลดไฟล์ CSV แล้ว');
   };
 
+  const downloadWord = async () => {
+    try {
+      const { buildWordBlob } = await import('../lib/wordReport.js');
+      const blob = await buildWordBlob({ who, range, rows });
+      const url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = `บันทึกการปฏิบัติงาน_${range.from}_${range.to}.docx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      notify('ดาวน์โหลดไฟล์ Word แล้ว');
+    } catch { notify('สร้างไฟล์ Word ไม่สำเร็จ ลองใหม่อีกครั้ง'); }
+  };
+
   const onKey = (e) => {
     if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
     if (e.key === 'Tab' && box.current) {
@@ -97,7 +109,7 @@ export default function ReportDialog({ events, today, who, onClose, notify }) {
         <div className="dlg__head">
           <div>
             <h2 className="dlg__title" id="rep-title">ส่งออกรายงาน</h2>
-            <p className="dlg__sub">เลือกช่วงเวลา แล้วดาวน์โหลดเป็นไฟล์ CSV หรือพิมพ์</p>
+            <p className="dlg__sub">เลือกช่วงเวลา แล้วดาวน์โหลดเป็นไฟล์ Word, CSV หรือพิมพ์</p>
           </div>
           <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="ปิดหน้าต่าง" onClick={onClose} />
         </div>
@@ -135,6 +147,7 @@ export default function ReportDialog({ events, today, who, onClose, notify }) {
         <div className="dlg__foot">
           <span className="spacer" />
           <Button variant="soft" disabled={!ready} onClick={download}>ดาวน์โหลด CSV</Button>
+          <Button variant="soft" disabled={!ready} onClick={downloadWord}>ส่งออก Word</Button>
           <Button variant="primary" disabled={!ready} onClick={() => window.print()}>พิมพ์รายงาน</Button>
         </div>
       </div>
