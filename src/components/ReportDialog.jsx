@@ -14,7 +14,7 @@ function rangeFor(kind, today, custom) {
   return custom;
 }
 
-export default function ReportDialog({ events, today, who, onClose, notify }) {
+export default function ReportDialog({ events, today, who, supervisor, supervisorTitle, onClose, notify }) {
   const [kind, setKind] = useState('month');
   const [custom, setCustom] = useState({ from: today.slice(0, 7) + '-01', to: today });
   const box = useRef(null);
@@ -39,7 +39,7 @@ export default function ReportDialog({ events, today, who, onClose, notify }) {
   const downloadWord = async () => {
     try {
       const { buildWordBlob } = await import('../lib/wordReport.js');
-      const blob = await buildWordBlob({ who, range, rows });
+      const blob = await buildWordBlob({ who, supervisor, supervisorTitle, range, rows });
       const url = URL.createObjectURL(blob), a = document.createElement('a');
       a.href = url; a.download = `บันทึกการปฏิบัติงาน_${range.from}_${range.to}.docx`;
       document.body.appendChild(a); a.click(); a.remove();

@@ -8,8 +8,9 @@ import SummaryPage from './pages/SummaryPage.jsx';
 import { ds } from './lib/dates.js';
 import { useToday } from './lib/hooks.js';
 import { clearUserData, demoData, loadEvents, pref, saveEvents, setPref } from './lib/storage.js';
-import { createSyncer, deleteAccountData, loadProfile, loadRemote, mergePhotoUrls, putMe, setTokenProvider } from './lib/remote.js';
+import { createSyncer, deleteAccountData, loadProfile, loadRemote, mergePhotoUrls, putMe, saveProfile, setTokenProvider } from './lib/remote.js';
 import DeleteAccountDialog from './components/DeleteAccountDialog.jsx';
+import ProfileDialog from './components/ProfileDialog.jsx';
 import { currentUser, forgetToken, getToken, signInWithGoogle, signOutAuth } from './lib/auth.js';
 import { saveTemplates } from './lib/templates.js';
 import { loadCategories } from './lib/categories.js';
@@ -25,6 +26,13 @@ function Workspace({ user, onSignOut, onDeleteAccount }) {
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editProfile, setEditProfile] = useState(false);
+  const [person, setPerson] = useState(() => ({ fullName: pref('sn-fullname', ''), supervisor: pref('sn-supervisor', ''), supervisorTitle: pref('sn-supervisor-title', '') }));
+  const savePerson = async (p) => {
+    if (!user.guest) await saveProfile(p);
+    setPref('sn-fullname', p.fullName); setPref('sn-supervisor', p.supervisor); setPref('sn-supervisor-title', p.supervisorTitle);
+    setPerson(p); setEditProfile(false); notify('บันทึกโปรไฟล์แล้ว');
+  };
   const [saveFailed, setSaveFailed] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loadTick, setLoadTick] = useState(0); // เพิ่มค่าเพื่อให้ effect โหลดทำงานซ้ำ
@@ -93,7 +101,7 @@ function Workspace({ user, onSignOut, onDeleteAccount }) {
   return (
     <div className="app">
       <Leaves />
-      <Sidebar page={page} onPage={setPage} user={user} onSignOut={onSignOut} onDeleteAccount={() => setConfirmDelete(true)} />
+      <Sidebar page={page} onPage={setPage} user={user} onSignOut={onSignOut} onDeleteAccount={() => setConfirmDelete(true)} onProfile={() => setEditProfile(true)} displayName={person.fullName} />
       <main className="main">
         {(saveFailed || loadFailed) && (
           <div className="banner" role="alert">
@@ -103,8 +111,9 @@ function Workspace({ user, onSignOut, onDeleteAccount }) {
         )}
         {page === 'calendar'
           ? <CalendarPage cursor={cursor} setCursor={setCursor} events={events} setEvents={setEvents} today={today} notify={notify} loaded={loaded} goal={goal} onGoal={setGoal} storeKey={storeKey} />
-          : <SummaryPage events={events} today={today} notify={notify} who={user.guest ? '' : user.name} />}
+          : <SummaryPage events={events} today={today} notify={notify} who={person.fullName || (user.guest ? '' : user.name)} supervisor={person.supervisor} supervisorTitle={person.supervisorTitle} />}
       </main>
+      {editProfile && <ProfileDialog person={person} onClose={() => setEditProfile(false)} onSave={savePerson} />}
       {confirmDelete && <DeleteAccountDialog onClose={() => setConfirmDelete(false)} onConfirm={onDeleteAccount} />}
       {toast && (
         <div className="toastwrap">
@@ -136,7 +145,7 @@ export default function App() {
         setAuthError('ลงชื่อเข้าใช้กับ Google สำเร็จแล้ว แต่เชื่อมต่อเซิร์ฟเวอร์ของแอปไม่ได้ (' + e.message + ') ตรวจว่ารัน npm run dev หรือ npm run api อยู่ แล้วโหลดหน้านี้ใหม่');
         return null;
       }
-      setPref('sn-goal', String(p.goal));
+      setPref('sn-goal', String(p.goal)); setPref('sn-fullname', p.fullName || ''); setPref('sn-supervisor', p.supervisor || ''); setPref('sn-supervisor-title', p.supervisorTitle || '');
       saveTemplates('events:' + u.id, p.templates || [], { remote: false });
       return { sub: u.id, name: u.name, email: u.email, picture: u.picture };
     })().then(setUser).catch((e) => { setAuthError('ตรวจสอบการลงชื่อเข้าใช้ไม่สำเร็จ: ' + e.message); setUser(null); });
@@ -146,6 +155,7 @@ export default function App() {
   const signOut = () => {
     const sub = user && user.sub;
     setPref('sn-guest', ''); setPref('sn-user', 'null'); setUser(null);
+    if (sub) { setPref('sn-fullname', ''); setPref('sn-supervisor', ''); setPref('sn-supervisor-title', ''); } // ไม่ทิ้งชื่อไว้ให้คนถัดไปที่ใช้เครื่องเดียวกัน
     forgetToken(); signOutAuth();
     clearUserData(sub); // ไม่ทิ้งแม่แบบและสำเนาบันทึกของผู้ใช้ไว้ให้คนถัดไปที่ใช้เครื่องเดียวกัน
   };

@@ -35,7 +35,7 @@ export function titleFor(range) {
   return 'บันทึกการปฏิบัติงาน ตั้งแต่วันที่ ' + thLong(range.from) + ' ถึง ' + thLong(range.to);
 }
 
-export async function buildWordBlob({ who, range, rows }) {
+export async function buildWordBlob({ who, supervisor, supervisorTitle, range, rows }) {
   const D = await import('docx');
   const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, VerticalAlign, BorderStyle, TableLayoutType, VerticalMergeType } = D;
 
@@ -119,7 +119,7 @@ export async function buildWordBlob({ who, range, rows }) {
     rows: [new TableRow({
       cantSplit: true,
       children: [
-        sigCell(['ตรวจสอบแล้ว ถูกต้องตามที่ได้ปฏิบัติจริง', 'ผู้ตรวจสอบ.............................................................', '(.............................................................)', 'ตำแหน่ง.............................................................']),
+        sigCell(['ตรวจสอบแล้ว ถูกต้องตามที่ได้ปฏิบัติจริง', 'ผู้ตรวจสอบ.............................................................', '(' + (supervisor || '.............................................................') + ')', 'ตำแหน่ง' + (supervisorTitle || '.............................................................')]),
         sigCell(['ขอรับรองว่าได้ปฏิบัติงานตามบันทึกข้างต้นจริง', 'ผู้ส่งมอบ........................................................', '(' + (who || '.............................................................') + ')', '']),
       ],
     })],

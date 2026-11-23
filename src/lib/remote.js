@@ -14,6 +14,8 @@ const jsonOpt = (method, body) => ({ method, headers: { 'content-type': 'applica
 
 export const loadProfile = () => api('/auth/me');
 export const putMe = (patch) => api('/me', jsonOpt('PUT', patch)).catch(() => {});
+/* บันทึกโปรไฟล์: ไม่กลืน error เพื่อให้หน้าต่างแจ้งผู้ใช้ว่าไม่สำเร็จ */
+export const saveProfile = (p) => api('/me', jsonOpt('PUT', p));
 export const loadRemote = () => api('/events');
 /* ลบข้อมูลทั้งหมดของบัญชีนี้ที่เซิร์ฟเวอร์ (ต่างจาก putMe: ไม่กลืน error ให้ผู้ใช้รู้ว่าลบไม่สำเร็จ) */
 export const deleteAccountData = () => api('/me', { method: 'DELETE' });

@@ -132,6 +132,13 @@ describe('PUT /api/me validation', () => {
   it('rejects a daily goal below the minimum', async () => { expect((await put({ goal: GOAL_MIN - 1 })).status).toBe(HTTP.BAD_REQUEST); });
   it('rejects a daily goal above the maximum', async () => { expect((await put({ goal: GOAL_MAX + 1 })).status).toBe(HTTP.BAD_REQUEST); });
   it('rejects a non-integer daily goal', async () => { expect((await put({ goal: 6.5 })).status).toBe(HTTP.BAD_REQUEST); });
+  it('rejects a name longer than 100 characters', async () => {
+    expect((await put({ fullName: 'ก'.repeat(101) })).status).toBe(HTTP.BAD_REQUEST);
+    expect((await put({ supervisor: 123 })).status).toBe(HTTP.BAD_REQUEST);
+  });
+  it('accepts a full name and supervisor', async () => {
+    expect((await put({ fullName: 'นางสาวทดสอบ ระบบ', supervisor: 'นายหัวหน้า ใจดี', supervisorTitle: 'ผู้อำนวยการกอง' })).status).toBe(HTTP.OK);
+  });
   it('accepts the boundary goals', async () => {
     expect((await put({ goal: GOAL_MIN })).status).toBe(HTTP.OK);
     expect((await put({ goal: GOAL_MAX })).status).toBe(HTTP.OK);

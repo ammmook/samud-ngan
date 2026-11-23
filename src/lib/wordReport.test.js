@@ -49,4 +49,11 @@ describe('buildWordBlob', () => {
     expect(doc).not.toContain('โน้ตลับ'); // หมายเหตุเว้นว่าง
     expect(doc).toContain('w:val="dashed"');
   });
+
+  it('puts the supervisor name under the reviewer line', async () => {
+    const blob = await buildWordBlob({ who: 'นางสาวทดสอบ ระบบ', supervisor: 'นายหัวหน้า ใจดี', supervisorTitle: 'ผู้อำนวยการกอง', range, rows });
+    const doc = strFromU8(unzipSync(new Uint8Array(await blob.arrayBuffer()))['word/document.xml']);
+    expect(doc).toContain('(นายหัวหน้า ใจดี)');
+    expect(doc).toContain('ตำแหน่งผู้อำนวยการกอง');
+  });
 });
