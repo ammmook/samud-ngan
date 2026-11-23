@@ -36,7 +36,7 @@ export default function SummaryPage({ events, today, notify, who }) {
           <h1 className="ttl">สรุป</h1>
           <p className="sub">ภาพรวมของสัปดาห์นี้และ{d.month}</p>
         </div>
-        <Button variant="soft" onClick={() => setReport(true)}>ส่งออกรายงาน</Button>
+        <Button variant="soft" icon="export" className="top__report" onClick={() => setReport(true)}>ส่งออกรายงาน</Button>
       </header>
 
       <div className="dash sn-fade">

@@ -115,28 +115,12 @@
 /* หน้าต่างส่งออกรายงาน */
 .dlg--report { width: min(560px, 100%); }
 .dlg--report .dlg__body { grid-template-columns: minmax(0, 1fr); }
+.rep__go { white-space: nowrap; }
 .rep__custom { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 .rep__range { font: 500 14px/22px var(--font-body); color: var(--ink-muted); }
 .rep__sum { display: flex; flex-direction: column; gap: var(--space-3); }
 .rep__total { font: 400 15px/28px var(--font-body); }
 .rep__total b { font: 500 30px/40px var(--font-display); margin-right: 4px; }
-
-/* หน้าพิมพ์ซ่อนบนจอ */
-.print-sheet { display: none; }
-@media print {
-  @page { margin: 16mm; }
-  html, body { background: #fff !important; }
-  #root { display: none !important; }
-  .print-sheet { display: block; color: #111; font: 13px/1.5 var(--font-body); }
-  .print-sheet h1 { font: 600 22px/1.3 var(--font-display); margin: 0 0 4px; }
-  .print-sheet h2 { font: 600 15px/1.3 var(--font-display); margin: 18px 0 6px; }
-  .print-sheet p { margin: 0 0 2px; }
-  .print-sheet table { width: 100%; border-collapse: collapse; }
-  .print-sheet th, .print-sheet td { border-bottom: 1px solid #bbb; text-align: left; padding: 4px 6px; vertical-align: top; }
-  .print-sheet thead { display: table-header-group; }
-  .print-sheet tr { break-inside: avoid; }
-  .print-sheet td small { display: block; color: #555; }
-}
 
 @media (max-width: 860px) {
   .sum { grid-template-columns: minmax(0, 1fr); }
@@ -151,6 +135,9 @@
   .find__row { grid-template-columns: minmax(0, 1fr) auto; }
   .find__date { grid-column: 1 / -1; }
   .rep__custom { grid-template-columns: minmax(0, 1fr); }
+  .dlg--report .dlg__foot { flex-direction: column; align-items: stretch; }
+  .dlg--report .dlg__foot .spacer { display: none; }
+  .dlg--report .rep__go { width: 100%; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   .plant--grow g, .cmp__bar, .hcol__bar, .find__list { animation: none !important; }

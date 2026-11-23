@@ -1,52 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Button, CATS, Segmented } from '../ds.js';
 import { DateField } from './TimeFields.jsx';
-import { addDays, addMonths, evHours, r1, sortEv, thDate, weekStart } from '../lib/dates.js';
-import { eventsToCsv, rangeTotals } from '../lib/stats.js';
+import { addDays, addMonths, r1, sortEv, thDate } from '../lib/dates.js';
+import { rangeTotals } from '../lib/stats.js';
 
 const RANGES = [
-  { value: 'week', label: 'สัปดาห์นี้' },
   { value: 'month', label: 'เดือนนี้' },
-  { value: 'prev', label: 'เดือนก่อน' },
   { value: 'custom', label: 'กำหนดเอง' },
 ];
 
 function rangeFor(kind, today, custom) {
-  if (kind === 'week') { const w = weekStart(today); return { from: w, to: addDays(w, 6) }; }
   if (kind === 'month') return { from: today.slice(0, 7) + '-01', to: addDays(addMonths(today.slice(0, 7) + '-01', 1), -1) };
-  if (kind === 'prev') { const f = addMonths(today.slice(0, 7) + '-01', -1); return { from: f, to: addDays(addMonths(f, 1), -1) }; }
   return custom;
-}
-
-/* หน้ารายงานสำหรับพิมพ์ ซ่อนบนจอ แสดงเฉพาะตอนสั่งพิมพ์ (ดู features.css) */
-function PrintSheet({ who, range, totals, rows }) {
-  const cats = Object.keys(totals.cat).sort((a, b) => totals.cat[b] - totals.cat[a]);
-  return createPortal(
-    <div className="print-sheet">
-      <h1>รายงานการทำงาน</h1>
-      <p>{who ? who + ' ' : ''}ช่วง {thDate(range.from)} ถึง {thDate(range.to)}</p>
-      <p>รวม {totals.hours} ชั่วโมง ใน {totals.days} วัน {totals.entries} บันทึก</p>
-      <h2>แยกตามหมวด</h2>
-      <table>
-        <thead><tr><th>หมวด</th><th>ชั่วโมง</th></tr></thead>
-        <tbody>{cats.map((k) => <tr key={k}><td>{CATS[k]}</td><td>{r1(totals.cat[k])}</td></tr>)}</tbody>
-      </table>
-      <h2>รายการทั้งหมด</h2>
-      <table>
-        <thead><tr><th>วันที่</th><th>เวลา</th><th>หมวด</th><th>งาน</th><th>ชม.</th></tr></thead>
-        <tbody>
-          {rows.map((e) => (
-            <tr key={e.id}>
-              <td>{thDate(e.date)}</td><td>{e.start}–{e.end}</td><td>{CATS[e.cat]}</td>
-              <td>{e.title}{e.note ? <small>{e.note}</small> : null}</td><td>{r1(evHours(e))}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>,
-    document.body,
-  );
 }
 
 export default function ReportDialog({ events, today, who, onClose, notify }) {
@@ -70,15 +35,6 @@ export default function ReportDialog({ events, today, who, onClose, notify }) {
   const totals = useMemo(() => rangeTotals(rows, range.from || '', range.to || ''), [rows, range.from, range.to]);
   const cats = Object.keys(totals.cat).sort((a, b) => totals.cat[b] - totals.cat[a]);
   const ready = !bad && rows.length > 0;
-
-  const download = () => {
-    const blob = new Blob([eventsToCsv(rows, CATS)], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob), a = document.createElement('a');
-    a.href = url; a.download = `samut-ngan_${range.from}_${range.to}.csv`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    notify('ดาวน์โหลดไฟล์ CSV แล้ว');
-  };
 
   const downloadWord = async () => {
     try {
@@ -109,7 +65,7 @@ export default function ReportDialog({ events, today, who, onClose, notify }) {
         <div className="dlg__head">
           <div>
             <h2 className="dlg__title" id="rep-title">ส่งออกรายงาน</h2>
-            <p className="dlg__sub">เลือกช่วงเวลา แล้วดาวน์โหลดเป็นไฟล์ Word, CSV หรือพิมพ์</p>
+            <p className="dlg__sub">เลือกช่วงเวลา แล้วแล้วส่งออกเป็นไฟล์ Word (.docx)</p>
           </div>
           <Button variant="ghost" size="sm" iconOnly icon="x" aria-label="ปิดหน้าต่าง" onClick={onClose} />
         </div>
@@ -138,7 +94,7 @@ export default function ReportDialog({ events, today, who, onClose, notify }) {
                     </li>
                   ))}
                 </ul>
-                <p className="sub">ไฟล์และหน้าพิมพ์มีรายการงานทุกบันทึกในช่วงนี้ พร้อมเวลาและรายละเอียด</p>
+                <p className="sub">ไฟล์ Word มีรายการงานทุกบันทึกในช่วงนี้ แยกตามสัปดาห์และวัน</p>
               </div>
             ) : !bad && <p className="sub" role="status">ช่วงนี้ยังไม่มีบันทึก เลือกช่วงอื่นเพื่อส่งออก</p>}
           </div>
@@ -146,12 +102,9 @@ export default function ReportDialog({ events, today, who, onClose, notify }) {
 
         <div className="dlg__foot">
           <span className="spacer" />
-          <Button variant="soft" disabled={!ready} onClick={download}>ดาวน์โหลด CSV</Button>
-          <Button variant="soft" disabled={!ready} onClick={downloadWord}>ส่งออก Word</Button>
-          <Button variant="primary" disabled={!ready} onClick={() => window.print()}>พิมพ์รายงาน</Button>
+          <Button variant="primary" icon="export" className="rep__go" disabled={!ready} onClick={downloadWord}>Export to Word</Button>
         </div>
       </div>
-      {ready && <PrintSheet who={who} range={range} totals={totals} rows={rows} />}
     </div>
   );
 }
