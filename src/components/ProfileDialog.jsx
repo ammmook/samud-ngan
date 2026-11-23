@@ -31,17 +31,14 @@ export default function ProfileDialog({ person, onSave, onClose }) {
           <div className="field dlg__wide">
             <label className="field__label" htmlFor="prof-name">ชื่อ-สกุล</label>
             <input id="prof-name" type="text" maxLength={100} autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="เช่น นางสาวสมหญิง ใจดี" />
-            <span className="field__hint">แสดงในหัวไฟล์ Word และช่อง &ldquo;ผู้ส่งมอบ&rdquo;</span>
           </div>
           <div className="field dlg__wide">
             <label className="field__label" htmlFor="prof-sup">ชื่อหัวหน้า</label>
             <input id="prof-sup" type="text" maxLength={100} value={supervisor} onChange={(e) => setSupervisor(e.target.value)} placeholder="เช่น นายสมชาย ใจดี" />
-            <span className="field__hint">แสดงในช่อง &ldquo;ผู้ตรวจสอบ&rdquo; ของไฟล์ Word</span>
           </div>
           <div className="field dlg__wide">
             <label className="field__label" htmlFor="prof-sup-title">ตำแหน่งของหัวหน้า</label>
             <input id="prof-sup-title" type="text" maxLength={100} value={supervisorTitle} onChange={(e) => setSupervisorTitle(e.target.value)} placeholder="เช่น ผู้อำนวยการกอง" />
-            <span className="field__hint">แสดงในช่อง &ldquo;ตำแหน่ง&rdquo; ใต้ผู้ตรวจสอบ ของไฟล์ Word</span>
           </div>
           {err && <p className="field__err dlg__wide" role="alert">{err}</p>}
         </div>
