@@ -137,7 +137,7 @@ describe('PUT /api/me validation', () => {
     expect((await put({ supervisor: 123 })).status).toBe(HTTP.BAD_REQUEST);
   });
   it('accepts a full name and supervisor', async () => {
-    expect((await put({ fullName: 'นางสาวทดสอบ ระบบ', supervisor: 'นายหัวหน้า ใจดี', supervisorTitle: 'ผู้อำนวยการกอง' })).status).toBe(HTTP.OK);
+    expect((await put({ fullName: 'นางสาวทดสอบ ระบบ', supervisor: 'นายหัวหน้า ใจดี', supervisorTitle: 'ผู้อำนวยการกอง', job: 'งานสารบรรณ', workGroup: 'กลุ่มงานบริหาร' })).status).toBe(HTTP.OK);
   });
   it('accepts the boundary goals', async () => {
     expect((await put({ goal: GOAL_MIN })).status).toBe(HTTP.OK);

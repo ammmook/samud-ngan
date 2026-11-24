@@ -27,10 +27,11 @@ function Workspace({ user, onSignOut, onDeleteAccount }) {
   const [toast, setToast] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editProfile, setEditProfile] = useState(false);
-  const [person, setPerson] = useState(() => ({ fullName: pref('sn-fullname', ''), supervisor: pref('sn-supervisor', ''), supervisorTitle: pref('sn-supervisor-title', '') }));
+  const [person, setPerson] = useState(() => ({ fullName: pref('sn-fullname', ''), supervisor: pref('sn-supervisor', ''), supervisorTitle: pref('sn-supervisor-title', ''), job: pref('sn-job', ''), workGroup: pref('sn-workgroup', '') }));
   const savePerson = async (p) => {
     if (!user.guest) await saveProfile(p);
     setPref('sn-fullname', p.fullName); setPref('sn-supervisor', p.supervisor); setPref('sn-supervisor-title', p.supervisorTitle);
+    setPref('sn-job', p.job); setPref('sn-workgroup', p.workGroup);
     setPerson(p); setEditProfile(false); notify('บันทึกโปรไฟล์แล้ว');
   };
   const [saveFailed, setSaveFailed] = useState(false);
@@ -111,7 +112,7 @@ function Workspace({ user, onSignOut, onDeleteAccount }) {
         )}
         {page === 'calendar'
           ? <CalendarPage cursor={cursor} setCursor={setCursor} events={events} setEvents={setEvents} today={today} notify={notify} loaded={loaded} goal={goal} onGoal={setGoal} storeKey={storeKey} />
-          : <SummaryPage events={events} today={today} notify={notify} who={person.fullName || (user.guest ? '' : user.name)} supervisor={person.supervisor} supervisorTitle={person.supervisorTitle} />}
+          : <SummaryPage events={events} today={today} notify={notify} who={person.fullName || (user.guest ? '' : user.name)} job={person.job} workGroup={person.workGroup} supervisor={person.supervisor} supervisorTitle={person.supervisorTitle} />}
       </main>
       {editProfile && <ProfileDialog person={person} onClose={() => setEditProfile(false)} onSave={savePerson} />}
       {confirmDelete && <DeleteAccountDialog onClose={() => setConfirmDelete(false)} onConfirm={onDeleteAccount} />}
@@ -145,7 +146,7 @@ export default function App() {
         setAuthError('ลงชื่อเข้าใช้กับ Google สำเร็จแล้ว แต่เชื่อมต่อเซิร์ฟเวอร์ของแอปไม่ได้ (' + e.message + ') ตรวจว่ารัน npm run dev หรือ npm run api อยู่ แล้วโหลดหน้านี้ใหม่');
         return null;
       }
-      setPref('sn-goal', String(p.goal)); setPref('sn-fullname', p.fullName || ''); setPref('sn-supervisor', p.supervisor || ''); setPref('sn-supervisor-title', p.supervisorTitle || '');
+      setPref('sn-goal', String(p.goal)); setPref('sn-fullname', p.fullName || ''); setPref('sn-supervisor', p.supervisor || ''); setPref('sn-supervisor-title', p.supervisorTitle || ''); setPref('sn-job', p.job || ''); setPref('sn-workgroup', p.workGroup || '');
       saveTemplates('events:' + u.id, p.templates || [], { remote: false });
       return { sub: u.id, name: u.name, email: u.email, picture: u.picture };
     })().then(setUser).catch((e) => { setAuthError('ตรวจสอบการลงชื่อเข้าใช้ไม่สำเร็จ: ' + e.message); setUser(null); });
@@ -155,7 +156,7 @@ export default function App() {
   const signOut = () => {
     const sub = user && user.sub;
     setPref('sn-guest', ''); setPref('sn-user', 'null'); setUser(null);
-    if (sub) { setPref('sn-fullname', ''); setPref('sn-supervisor', ''); setPref('sn-supervisor-title', ''); } // ไม่ทิ้งชื่อไว้ให้คนถัดไปที่ใช้เครื่องเดียวกัน
+    if (sub) { setPref('sn-fullname', ''); setPref('sn-supervisor', ''); setPref('sn-supervisor-title', ''); setPref('sn-job', ''); setPref('sn-workgroup', ''); } // ไม่ทิ้งชื่อไว้ให้คนถัดไปที่ใช้เครื่องเดียวกัน
     forgetToken(); signOutAuth();
     clearUserData(sub); // ไม่ทิ้งแม่แบบและสำเนาบันทึกของผู้ใช้ไว้ให้คนถัดไปที่ใช้เครื่องเดียวกัน
   };

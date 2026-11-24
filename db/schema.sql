@@ -12,6 +12,8 @@ CREATE TABLE users (
   full_name   text        NOT NULL DEFAULT '' CHECK (length(full_name) <= 100),   -- ชื่อ-สกุลที่ใส่ในไฟล์ Word (ต่างจาก name ที่มาจาก Google)
   supervisor  text        NOT NULL DEFAULT '' CHECK (length(supervisor) <= 100),  -- ชื่อหัวหน้า ใส่ช่องผู้ตรวจสอบ
   supervisor_title text   NOT NULL DEFAULT '' CHECK (length(supervisor_title) <= 100),  -- ตำแหน่งของหัวหน้า ใส่ช่องตำแหน่งใต้ผู้ตรวจสอบ
+  job         text        NOT NULL DEFAULT '' CHECK (length(job) <= 100),         -- งาน ใส่หัวไฟล์ Word
+  work_group  text        NOT NULL DEFAULT '' CHECK (length(work_group) <= 100),  -- กลุ่มงาน ใส่หัวไฟล์ Word
   daily_goal  smallint    NOT NULL DEFAULT 6 CHECK (daily_goal BETWEEN 1 AND 12),  -- sn-goal
   templates   jsonb       NOT NULL DEFAULT '[]'
               CHECK (jsonb_typeof(templates) = 'array' AND jsonb_array_length(templates) <= 12),

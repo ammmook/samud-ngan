@@ -35,7 +35,7 @@ export function titleFor(range) {
   return 'บันทึกการปฏิบัติงาน ตั้งแต่วันที่ ' + thLong(range.from) + ' ถึง ' + thLong(range.to);
 }
 
-export async function buildWordBlob({ who, supervisor, supervisorTitle, range, rows }) {
+export async function buildWordBlob({ who, job, workGroup, supervisor, supervisorTitle, range, rows }) {
   const D = await import('docx');
   const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, VerticalAlign, BorderStyle, TableLayoutType, VerticalMergeType } = D;
 
@@ -119,8 +119,9 @@ export async function buildWordBlob({ who, supervisor, supervisorTitle, range, r
     rows: [new TableRow({
       cantSplit: true,
       children: [
-        sigCell(['ตรวจสอบแล้ว ถูกต้องตามที่ได้ปฏิบัติจริง', 'ผู้ตรวจสอบ.............................................................', '(' + (supervisor || '.............................................................') + ')', 'ตำแหน่ง' + (supervisorTitle || '.............................................................')]),
+        // ซ้าย = ผู้ส่งมอบ, ขวา = ผู้ตรวจสอบ (หัวหน้า) ตามแบบฟอร์ม
         sigCell(['ขอรับรองว่าได้ปฏิบัติงานตามบันทึกข้างต้นจริง', 'ผู้ส่งมอบ........................................................', '(' + (who || '.............................................................') + ')', '']),
+        sigCell(['ตรวจสอบแล้ว ถูกต้องตามที่ได้ปฏิบัติจริง', 'ผู้ตรวจสอบ.............................................................', '(' + (supervisor || '.............................................................') + ')', 'ตำแหน่ง ' + (supervisorTitle || '.............................................................')]),
       ],
     })],
   });
@@ -133,7 +134,8 @@ export async function buildWordBlob({ who, supervisor, supervisorTitle, range, r
       properties: { page: { size: { width: 11907, height: 16839 }, margin: { top: 851, bottom: 851, left: 720, right: 720 } } },
       children: [
         head(titleFor(range)),
-        ...(who ? [head('ชื่อ-สกุล ' + who)] : []),
+        // บรรทัดเดียวตามแบบฟอร์ม: ชื่อ-สกุล / งาน / กลุ่มงาน (ที่ว่างเป็นเส้นประให้เขียนมือ)
+        head('ชื่อ-สกุล ' + (who || '.............................................') + '    งาน ' + (job || '.........................') + '    กลุ่มงาน ' + (workGroup || '..................................')),
         new Table({
           width: { size: 10467, type: WidthType.DXA }, columnWidths: W, layout: TableLayoutType.FIXED, rows: trs,
           borders: { top: solid, bottom: solid, left: solid, right: solid, insideVertical: solid, insideHorizontal: { style: BorderStyle.DASHED, size: 4, color: '000000' } },

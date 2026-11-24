@@ -51,9 +51,12 @@ describe('buildWordBlob', () => {
   });
 
   it('puts the supervisor name under the reviewer line', async () => {
-    const blob = await buildWordBlob({ who: 'นางสาวทดสอบ ระบบ', supervisor: 'นายหัวหน้า ใจดี', supervisorTitle: 'ผู้อำนวยการกอง', range, rows });
+    const blob = await buildWordBlob({ who: 'นางสาวทดสอบ ระบบ', job: 'งานสารบรรณ', workGroup: 'กลุ่มงานบริหาร', supervisor: 'นายหัวหน้า ใจดี', supervisorTitle: 'ผู้อำนวยการกอง', range, rows });
     const doc = strFromU8(unzipSync(new Uint8Array(await blob.arrayBuffer()))['word/document.xml']);
+    expect(doc).toContain('งาน งานสารบรรณ');
+    expect(doc).toContain('กลุ่มงาน กลุ่มงานบริหาร');
     expect(doc).toContain('(นายหัวหน้า ใจดี)');
-    expect(doc).toContain('ตำแหน่งผู้อำนวยการกอง');
+    expect(doc.indexOf('ผู้ส่งมอบ')).toBeLessThan(doc.indexOf('ผู้ตรวจสอบ')); // ผู้ส่งมอบอยู่ซ้าย
+    expect(doc).toContain('ตำแหน่ง ผู้อำนวยการกอง');
   });
 });

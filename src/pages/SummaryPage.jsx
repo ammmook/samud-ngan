@@ -7,7 +7,7 @@ import LeafHeatmap from '../components/LeafHeatmap.jsx';
 import ReportDialog from '../components/ReportDialog.jsx';
 import { M_FULL, WD_SHORT, addDays, evHours, pd, r1, weekStart } from '../lib/dates.js';
 
-export default function SummaryPage({ events, today, notify, who, supervisor, supervisorTitle }) {
+export default function SummaryPage({ events, today, notify, who, job, workGroup, supervisor, supervisorTitle }) {
   const [report, setReport] = useState(false);
   const d = useMemo(() => {
     const by = {};
@@ -58,7 +58,7 @@ export default function SummaryPage({ events, today, notify, who, supervisor, su
         <div className="sum__full"><LeafHeatmap events={events} today={today} /></div>
       </div>
 
-      {report && <ReportDialog events={events} today={today} who={who} supervisor={supervisor} supervisorTitle={supervisorTitle} notify={notify} onClose={() => setReport(false)} />}
+      {report && <ReportDialog events={events} today={today} who={who} job={job} workGroup={workGroup} supervisor={supervisor} supervisorTitle={supervisorTitle} notify={notify} onClose={() => setReport(false)} />}
     </>
   );
 }

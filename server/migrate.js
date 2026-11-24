@@ -14,7 +14,7 @@ try {
     console.log('migration สำเร็จ');
   }
   // ฐานข้อมูลที่สร้างไว้ก่อนมีโปรไฟล์: เพิ่มคอลัมน์ (รันซ้ำได้)
-  await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name text NOT NULL DEFAULT '' CHECK (length(full_name) <= 100), ADD COLUMN IF NOT EXISTS supervisor text NOT NULL DEFAULT '' CHECK (length(supervisor) <= 100), ADD COLUMN IF NOT EXISTS supervisor_title text NOT NULL DEFAULT '' CHECK (length(supervisor_title) <= 100)");
+  await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name text NOT NULL DEFAULT '' CHECK (length(full_name) <= 100), ADD COLUMN IF NOT EXISTS supervisor text NOT NULL DEFAULT '' CHECK (length(supervisor) <= 100), ADD COLUMN IF NOT EXISTS supervisor_title text NOT NULL DEFAULT '' CHECK (length(supervisor_title) <= 100), ADD COLUMN IF NOT EXISTS job text NOT NULL DEFAULT '' CHECK (length(job) <= 100), ADD COLUMN IF NOT EXISTS work_group text NOT NULL DEFAULT '' CHECK (length(work_group) <= 100)");
   const t = await client.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY 1");
   console.log('tables:', t.rows.map((r) => r.table_name).join(', '));
 } finally {

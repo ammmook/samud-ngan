@@ -67,7 +67,7 @@ export function createHandler({ pool, files, verifyToken, distDir, rateLimit = {
        ON CONFLICT (auth_id) DO UPDATE SET auth_id = EXCLUDED.auth_id RETURNING id`, [String(p.sub), p.email, p.name || '']);
     return Number(ins.rows[0].id);
   }
-  const profile = (u) => ({ goal: u.daily_goal, templates: u.templates, fullName: u.full_name || '', supervisor: u.supervisor || '', supervisorTitle: u.supervisor_title || '' });
+  const profile = (u) => ({ goal: u.daily_goal, templates: u.templates, fullName: u.full_name || '', supervisor: u.supervisor || '', supervisorTitle: u.supervisor_title || '', job: u.job || '', workGroup: u.work_group || '' });
   const getUser = async (uid) => {
     const { rows } = await pool.query('SELECT * FROM users WHERE id=$1', [uid]);
     if (!rows.length) throw new HttpError(401, 'ไม่พบบัญชี');
@@ -82,7 +82,7 @@ export function createHandler({ pool, files, verifyToken, distDir, rateLimit = {
         if (!Number.isInteger(b.goal) || b.goal < 1 || b.goal > 12) throw bad('เป้าต้องอยู่ระหว่าง 1 ถึง 12');
         await pool.query('UPDATE users SET daily_goal=$2 WHERE id=$1', [uid, b.goal]);
       }
-      for (const [k, col, label] of [['fullName', 'full_name', 'ชื่อ-สกุล'], ['supervisor', 'supervisor', 'ชื่อหัวหน้า'], ['supervisorTitle', 'supervisor_title', 'ตำแหน่งหัวหน้า']]) {
+      for (const [k, col, label] of [['fullName', 'full_name', 'ชื่อ-สกุล'], ['supervisor', 'supervisor', 'ชื่อหัวหน้า'], ['supervisorTitle', 'supervisor_title', 'ตำแหน่งหัวหน้า'], ['job', 'job', 'งาน'], ['workGroup', 'work_group', 'กลุ่มงาน']]) {
         if (b[k] === undefined) continue;
         if (typeof b[k] !== 'string' || b[k].trim().length > 100) throw bad(label + 'ต้องไม่เกิน 100 ตัวอักษร');
         await pool.query(`UPDATE users SET ${col}=$2 WHERE id=$1`, [uid, b[k].trim()]);
