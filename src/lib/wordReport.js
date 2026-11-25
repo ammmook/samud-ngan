@@ -1,7 +1,7 @@
-/* ส่งออกรายงานเป็นไฟล์ Word (.docx) รูปแบบ "บันทึกการปฏิบัติงาน" ฟอนต์ TH Sarabun PSK */
+/* ส่งออกรายงานเป็นไฟล์ Word (.docx) รูปแบบ "บันทึกการปฏิบัติงาน" ฟอนต์ TH SarabunPSK */
 import { addDays, evHours, M_FULL, pd, r1, sortEv } from './dates.js';
 
-const FONT = 'TH Sarabun PSK';
+const FONT = 'TH SarabunPSK'; // ชื่อฟอนต์ตามที่ติดตั้งในเครื่อง (ไม่มีเว้นวรรค) Word ต้องเรียกชื่อนี้ถึงจะไม่ถอยไปใช้ฟอนต์อื่น
 const SZ = 32; // half-points = 16pt
 const W = [7567, 850, 850, 1200]; // รวม 10467 = กว้างหน้า A4 ลบขอบ 720 สองข้าง
 
@@ -134,8 +134,8 @@ export async function buildWordBlob({ who, job, workGroup, supervisor, superviso
       properties: { page: { size: { width: 11907, height: 16839 }, margin: { top: 851, bottom: 851, left: 720, right: 720 } } },
       children: [
         head(titleFor(range)),
-        // บรรทัดเดียวตามแบบฟอร์ม: ชื่อ-สกุล / งาน / กลุ่มงาน (ที่ว่างเป็นเส้นประให้เขียนมือ)
-        head('ชื่อ-สกุล ' + (who || '.............................................') + '    งาน ' + (job || '.........................') + '    กลุ่มงาน ' + (workGroup || '..................................')),
+        // บรรทัดเดียวตามแบบฟอร์ม: ชื่อ-สกุล งาน กลุ่มงาน ค่าที่กรอกมีคำว่า "งาน"/"กลุ่มงาน" อยู่แล้ว จึงไม่เติมป้ายซ้ำ (ที่ว่างเป็นป้ายกับเส้นประให้เขียนมือ)
+        head('ชื่อ-สกุล ' + (who || '.............................................') + ' ' + (job || 'งาน.........................') + ' ' + (workGroup || 'กลุ่มงาน..................................')),
         new Table({
           width: { size: 10467, type: WidthType.DXA }, columnWidths: W, layout: TableLayoutType.FIXED, rows: trs,
           borders: { top: solid, bottom: solid, left: solid, right: solid, insideVertical: solid, insideHorizontal: { style: BorderStyle.DASHED, size: 4, color: '000000' } },

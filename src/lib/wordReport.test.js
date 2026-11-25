@@ -31,14 +31,14 @@ describe('wordReport helpers', () => {
 });
 
 describe('buildWordBlob', () => {
-  it('produces a docx that uses only TH Sarabun PSK and the right content', async () => {
+  it('produces a docx that uses only TH SarabunPSK and the right content', async () => {
     const blob = await buildWordBlob({ who: 'นางสาวทดสอบ ระบบ', range, rows });
     const files = unzipSync(new Uint8Array(await blob.arrayBuffer()));
     const doc = strFromU8(files['word/document.xml']);
     const styles = strFromU8(files['word/styles.xml']);
 
     const fonts = new Set([...(doc + styles).matchAll(/w:(?:ascii|hAnsi|cs|eastAsia)="([^"]+)"/g)].map((m) => m[1]));
-    expect([...fonts]).toEqual(['TH Sarabun PSK']);
+    expect([...fonts]).toEqual(['TH SarabunPSK']);
     expect(doc).toContain('w:sz w:val="32"');
 
     expect(doc).toContain('บันทึกการปฏิบัติงาน ประจำเดือน พฤศจิกายน 2569');
@@ -53,8 +53,8 @@ describe('buildWordBlob', () => {
   it('puts the supervisor name under the reviewer line', async () => {
     const blob = await buildWordBlob({ who: 'นางสาวทดสอบ ระบบ', job: 'งานสารบรรณ', workGroup: 'กลุ่มงานบริหาร', supervisor: 'นายหัวหน้า ใจดี', supervisorTitle: 'ผู้อำนวยการกอง', range, rows });
     const doc = strFromU8(unzipSync(new Uint8Array(await blob.arrayBuffer()))['word/document.xml']);
-    expect(doc).toContain('งาน งานสารบรรณ');
-    expect(doc).toContain('กลุ่มงาน กลุ่มงานบริหาร');
+    expect(doc).toContain('นางสาวทดสอบ ระบบ งานสารบรรณ กลุ่มงานบริหาร');
+    expect(doc).toContain('กลุ่มงานบริหาร');
     expect(doc).toContain('(นายหัวหน้า ใจดี)');
     expect(doc.indexOf('ผู้ส่งมอบ')).toBeLessThan(doc.indexOf('ผู้ตรวจสอบ')); // ผู้ส่งมอบอยู่ซ้าย
     expect(doc).toContain('ตำแหน่ง ผู้อำนวยการกอง');
